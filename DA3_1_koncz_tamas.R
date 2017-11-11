@@ -125,3 +125,35 @@ r2_spline_2knot <- var(dt$spline_2knot_pred) / var(dt$price)
 r2_spline_2knot
 
 ## poly (quadratic - cubic)
+dt$distance_sq <- dt$distance ^ 2
+dt$distance_cub <- dt$distance ^ 3
+
+## square
+sqLM_model <- lm(price ~ distance + distance_sq, dt)
+summary(sqLM_model)
+dt$sqLM_pred <- predict(sqLM_model)
+
+ggplot(data = dt, aes(x = distance, y = price)) + geom_point(size = 2, color = "orange", shape = 4) +
+  labs(x = "Distance to city center (km)", y = "Hotel price (EUR)") +
+  geom_line(data = dt, aes(x = distance, y = sqLM_pred), color = "blue")
+
+r2_sqLM <- var(dt$sqLM_pred) / var(dt$price)
+r2_sqLM
+
+##cubic
+cubLM_model <- lm(price ~ distance + distance_sq + distance_cub, dt)
+summary(cubLM_model)
+dt$cubLM_pred <- predict(cubLM_model)
+  
+ggplot(data = dt, aes(x = distance, y = price)) + geom_point(size = 2, color = "orange", shape = 4) +
+  labs(x = "Distance to city center (km)", y = "Hotel price (EUR)") +
+  geom_line(data = dt, aes(x = distance, y = cubLM_pred), color = "blue")
+
+r2_cubLM <- var(dt$cubLM_pred) / var(dt$price)
+r2_cubLM
+
+## sub-sample
+dt[, .N, by = stars][order(as.numeric(-stars))]
+dt[, .N, by = rating][order(-rating)]
+
+ggplot(data = dt, aes(x = stars, y = rating)) + geom_point() + geom_smooth()
