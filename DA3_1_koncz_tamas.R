@@ -40,7 +40,7 @@ cutoff <- dt[, median(distance)]
 dt[, is_close := distance < cutoff]
 head(dt)
 
-## 
+## binary
 
 binary_model <- dt[, .(avg_price = mean(price)), by = is_close]
 ggplot(binary_model, aes(is_close, avg_price)) + geom_point() + 
@@ -51,11 +51,47 @@ dt[, binary_pred := mean(price), by = is_close]
 r2_binary <- var(dt$binary_pred) / var(dt$price)
 r2_binary
 
-##
+## lowess
 
-?lowess
-lowess(dt$distance, dt$price)
-summary(loess(distance ~ price, dt))
+loess_model <- loess(price ~ distance, dt)
+dt$loess_pred <- predict(loess_model)
 
+ggplot(dt, aes(distance, price)) + geom_point() + geom_smooth(method = 'loess')
+ggplot(dt, aes(distance, price)) + geom_point() + geom_line(data=dt,aes(x=distance,y=loess_pred),colour="blue")
 
-ggplot(dt, aes(distance, price)) + geom_point(aes(color = dt$is_close)) + geom_smooth(method = 'lm')
+r2_loess <- var(dt$loess_pred) / var(dt$price)
+r2_loess
+
+## simple linear regression
+simpleLM <- lm(price ~ distance, dt)
+summary(simpleLM)
+
+dt$simpleLM_pred <- predict(simpleLM)
+
+ggplot(dt, aes(distance, price)) + geom_point() + geom_smooth(method = 'lm')
+ggplot(dt, aes(distance, price)) + geom_point() + 
+                                    geom_line(data=dt,aes(x=distance,y=simpleLM_pred),colour="blue")
+
+r2_simpleLM <- var(dt$simpleLM_pred) / var(dt$price)
+r2_simpleLM 
+
+## non-linears
+
+## log(price)
+dt[, ln_price := log(price)]
+
+logLM <- lm(ln_price ~ distance, dt)
+summary(logLM)
+
+dt$logLM_pred <- predict(logLM) ##transform this back to original price level
+
+ggplot(dt, aes(distance, ln_price)) + geom_point() + geom_smooth(method = 'lm')
+ggplot(dt, aes(distance, ln_price)) + geom_point() + 
+  geom_line(data=dt,aes(x=distance,y=logLM_pred),colour="blue")
+
+r2_logLM <- var(dt$logLM_pred) / var(dt$ln_price)
+r2_logLM 
+
+## spline (knots 1 - 2 -3)
+
+## poly (quadratic - cubic)
