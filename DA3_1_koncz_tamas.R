@@ -92,6 +92,36 @@ ggplot(dt, aes(distance, ln_price)) + geom_point() +
 r2_logLM <- var(dt$logLM_pred) / var(dt$ln_price)
 r2_logLM 
 
-## spline (knots 1 - 2 -3)
+## spline (knots 1 - 2)
+library(lspline)
+
+##1 knot
+spline_1knot_model <- lm(price ~ lspline(distance, cutoff), data=dt)
+summary(spline_1knot_model)
+dt$spline_1knot_pred <- predict(spline_1knot_model)
+
+ggplot(data = dt, aes(x=distance, y=price)) +
+  geom_point(size=1.5, colour="orange",shape=4) +
+  labs(x="Distance to city center (km)",y="Hotel price (EUR)")+
+  geom_line(data=dt,aes(x=distance,y=spline_1knot_pred),colour="blue")+
+  geom_vline(xintercept=cutoff,colour="red")
+
+r2_spline_1knot <- var(dt$spline_1knot_pred) / var(dt$price)
+r2_spline_1knot
+
+## 2 knots
+knots = c(1, 2.5)
+spline_2knot_model <- lm(price ~ lspline(distance, knots), data = dt)
+summary(spline_2knot_model)
+dt$spline_2knot_pred <- predict(spline_2knot_model)
+
+ggplot(data = dt, aes(x = distance, y = price)) +
+  geom_point(size = 1.5, colour = "orange", shape = 4) +
+  labs(x = "Distance to city center (km)", y = "Hotel price (EUR)") +
+  geom_line(data = dt, aes(x = distance, y = spline_2knot_pred), colour = "blue") +
+  geom_vline(xintercept = knots, colour = "red")
+
+r2_spline_2knot <- var(dt$spline_2knot_pred) / var(dt$price)
+r2_spline_2knot
 
 ## poly (quadratic - cubic)
