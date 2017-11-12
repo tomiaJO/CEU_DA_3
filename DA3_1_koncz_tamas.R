@@ -1,7 +1,7 @@
 library(data.table)
 library(ggplot2)
 
-dt <- fread('hotels_all_nov21.csv')
+hotels <- fread('hotels_all_nov21.csv')
 
 str(dt)
 head(dt)
@@ -9,7 +9,7 @@ head(dt)
 
 dt[, .N, by = accommodation_type][order(-N)]
 
-dt <- dt[accommodation_type %in% c('Hotel', 'Hostel'), ]
+dt <- hotels[accommodation_type %in% c('Hotel', 'Hostel'), ]
 dt <- dt[stars >= 2, ]
 dt <- dt[city == 'Barcelona', ]
 
@@ -18,7 +18,9 @@ dt <- dt[city == 'Barcelona', ]
 ggplot(dt, aes(price)) + geom_histogram(binwidth = 10)
 ggplot(dt[distance<5, ], aes(distance)) + geom_histogram(binwidth = .25)
 
-p <- ggplot(dt, aes(distance, price)) + geom_point() + geom_smooth(method = 'lm') 
+p <- ggplot(dt, aes(distance, price)) + geom_point() + 
+  geom_smooth() + 
+  scale_y_continuous(expand = c(0, 0), limits = c(0,500))
 p
 p + facet_wrap(~stars)
 
@@ -104,7 +106,7 @@ ggplot(data = dt, aes(x=distance, y=price)) +
   geom_point(size=1.5, colour="orange",shape=4) +
   labs(x="Distance to city center (km)",y="Hotel price (EUR)")+
   geom_line(data=dt,aes(x=distance,y=spline_1knot_pred),colour="blue")+
-  geom_vline(xintercept=cutoff,colour="red")
+  geom_vline(xintercept=cutoff,colour="red") + geom_la
 
 r2_spline_1knot <- var(dt$spline_1knot_pred) / var(dt$price)
 r2_spline_1knot
@@ -152,8 +154,49 @@ ggplot(data = dt, aes(x = distance, y = price)) + geom_point(size = 2, color = "
 r2_cubLM <- var(dt$cubLM_pred) / var(dt$price)
 r2_cubLM
 
+## interpretation
+
+##why the strange breakdown?
+## short overview of distance categories
+install.packages('ggmap')
+library(ggmap)
+geocodes <- dt[,.N]
+
+ggplot(dt, aes(coordinatelon, coordinatelat, color = category)) + geom_point()
+
+map <- get_map(location = 'Barcelona', zoom = 14, maptype = 'roadmap')
+ggmap(map) + geom_point(data = dt[distance<.25, ], aes(coordinatelon, coordinatelat, color = category), size = 4)
+
+dt[, distance_cat := cut(distance, breaks = c(0, 1.1, 2.5, Inf), labels = c('<1.1', '1.1 - 2.5', '2.5+'))]
+
+ggmap(map) + geom_point(data = dt[], aes(coordinatelon, coordinatelat, color = price, shape = distance_cat), size = 3) +
+  scale_color_continuous(low = 'grey', high = 'black')
+
 ## sub-sample
 dt[, .N, by = stars][order(as.numeric(-stars))]
 dt[, .N, by = rating][order(-rating)]
 
-ggplot(data = dt, aes(x = stars, y = rating)) + geom_point() + geom_smooth()
+ggplot(data = dt, aes(x = stars)) + geom_bar()
+
+
+
+## create 3 sub-groups: 2-2.5 stars, 3-3.5 stars, 4+
+
+dt <- hotels[accommodation_type %in% c('Hotel', 'Hostel'), ]
+dt <- dt[city == 'Barcelona', ]
+
+dt[, category := cut(stars, c(0, 2.99, 3.99, Inf), labels = c('1*/2*', '3*', '4*+')), by = stars]
+
+dt[, .N, by = c('category', 'stars')][order(-stars)]
+
+ggplot(data = dt, aes(x = distance, y = category)) + geom_point() 
+
+ggplot(data = dt, aes(x = distance, y = price, color = category)) + geom_point()
+
+dt[price == max(price), c('name', 'stars', 'rating', 'price')] ##looks like a data issue... drop it!
+dt <- dt[price < max(price), ]
+ggplot(data = dt, aes(x = distance, y = price, color = category)) + geom_point()
+
+
+
+?scale_color_continuous

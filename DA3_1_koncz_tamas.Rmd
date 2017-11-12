@@ -1,0 +1,107 @@
+---
+title: "DA3_1_koncz_tamas"
+author: "Tamas Koncz"
+date: '2017 november 12 '
+output: html_document
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(data.table)
+library(ggplot2)
+
+# Multiple plot function
+#
+# ggplot objects can be passed in ..., or to plotlist (as a list of ggplot objects)
+# - cols:   Number of columns in layout
+# - layout: A matrix specifying the layout. If present, 'cols' is ignored.
+#
+# If the layout is something like matrix(c(1,2,3,3), nrow=2, byrow=TRUE),
+# then plot 1 will go in the upper left, 2 will go in the upper right, and
+# 3 will go all the way across the bottom.
+#
+multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
+  require(grid)
+
+  # Make a list from the ... arguments and plotlist
+  plots <- c(list(...), plotlist)
+
+  numPlots = length(plots)
+
+  # If layout is NULL, then use 'cols' to determine layout
+  if (is.null(layout)) {
+    # Make the panel
+    # ncol: Number of columns of plots
+    # nrow: Number of rows needed, calculated from # of cols
+    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
+                    ncol = cols, nrow = ceiling(numPlots/cols))
+  }
+
+ if (numPlots==1) {
+    print(plots[[1]])
+
+  } else {
+    # Set up the page
+    grid.newpage()
+    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
+
+    # Make each plot, in the correct location
+    for (i in 1:numPlots) {
+      # Get the i,j matrix positions of the regions that contain this subplot
+      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
+
+      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
+                                      layout.pos.col = matchidx$col))
+    }
+  }
+}
+
+```
+
+#### 1. Filter the data to the city of your choice and other characteristics (stars, accomodation type) . Describe the distribution of the price and distance variables. Comment on graphs. (1-2 sentences)
+
+Loading data & filtering:
+
+```{r, error = FALSE}
+hotels <- fread('hotels_all_nov21.csv')
+
+dt <- hotels[accommodation_type %in% c('Hotel', 'Hostel'), ]
+dt <- dt[stars >= 2, ]
+dt <- dt[city == 'Barcelona', ]
+```
+
+Let's look at the distribution of the 'price' and 'distance' variables (codes are hidden with 'echo = FALSE' for better readability of the final document):
+
+```{r, error = FALSE, warning = FALSE, echo = FALSE, message = FALSE, fig.width = 10}
+
+hist_price <- ggplot(dt, aes(price)) + geom_histogram(binwidth = 10) +
+  labs(x = "Hotel price (EUR)") +
+  geom_vline(xintercept = mean(dt$price), color = 'red') +
+  geom_text(aes(x = mean(dt$price), y = 55), label ='mean', color = 'red', angle = 90, vjust = 1.0) +
+  geom_vline(xintercept = median(dt$price), color = 'blue') +
+  geom_text(aes(x = median(dt$price), y = 55), label ='median', color = 'blue', angle = 90, vjust = 1.0) 
+  
+
+hist_distance <- ggplot(dt, aes(distance)) + geom_histogram(binwidth = .25) +
+  labs(x = "Distance to city center (km)") +
+  geom_vline(xintercept = mean(dt$distance), color = 'red') +
+  geom_text(aes(x = mean(dt$distance), y = 65), label ='mean', color = 'red', angle = 90, vjust = 1.0) +
+  geom_vline(xintercept = median(dt$distance), color = 'blue') +
+  geom_text(aes(x = median(dt$distance), y = 65), label ='median', color = 'blue', angle = 90, vjust = 1.0)
+
+
+multiplot(hist_price, hist_distance, cols = 2)
+```
+
+As we can see, both are skewed to the right, with long left tails.
+
+```{r, error = FALSE}
+p <- ggplot(dt, aes(distance, price)) + geom_point() + 
+  geom_smooth() + 
+  scale_y_continuous(expand = c(0, 0), limits = c(0,500))
+p
+p + facet_wrap(~stars)
+```
+
+
