@@ -94,14 +94,69 @@ hist_distance <- ggplot(dt, aes(distance)) + geom_histogram(binwidth = .25) +
 multiplot(hist_price, hist_distance, cols = 2)
 ```
 
-As we can see, both are skewed to the right, with long left tails.
 
-```{r, error = FALSE}
+As we can see, both are skewed to the right (means are larger than medians), with long tails.
+The hotel prices' distribution is very similar to what we can usually observe for price variables.
+Also, if we think about the accomodation business, it only make sense to have most hotels close to the city center, rather than in suburban areas.
+
+
+Next we can plot the distance against the price on a scatterplot:
+
+```{r, error = FALSE, warning = FALSE, echo = FALSE, message = FALSE, fig.width = 10}
 p <- ggplot(dt, aes(distance, price)) + geom_point() + 
   geom_smooth() + 
-  scale_y_continuous(expand = c(0, 0), limits = c(0,500))
-p
-p + facet_wrap(~stars)
+  scale_y_continuous(expand = c(0, 0), limits = c(0,500)) +
+  labs(x = "Distance to city center (km)", y = "Hotel price (EUR)")
+
+multiplot(p, p + facet_wrap(~stars), cols = 2)
 ```
 
+
+The relationship between the variables are not straightforward based on a scatterplot visualization.
+With the help of a loess smoothing, we can also observe that it is likely not linear across all distances.
+
+The right hand chart is the same scatterplot but breaken down to different hotel star categories. We can observe significant differences in the distribution among prices in the different categories, that could be part of the explaination the non-linearities.
+(More on this later)
+
+#### 2. Sample definition: You may or may not want to drop some observations; make a choice and argue for it (1-2 sentences).
+
+In the next step I'll define a sub-sample of all previous records for further analysis.
+I admit the choices are made are somewhat arbitrary and they are not aiming to remove errorneous values (something that we'll see in a later question).
+
+The decisions to remove certain records are primaraly due to two reasons:
+  1. I wanted to build the model in a range where are observations are "dense enough". In certain data ranges, where we don't have enough observations, a simple model can over-react
+  2. In real-life examples we will always have certain constraints. If we are looking for the best hotel value, we still might have a budget (capped in 150 euros below), and a distance we are willing to walk at the worst case (3.5km below)
+  
+
+```{r, error = FALSE, warning = FALSE, echo = TRUE, message = FALSE, fig.width = 10}
+dt <- dt[price <= 150, ]
+dt <- dt[distance <= 3.5, ]
+dt <- dt[order(-price), c('name', 'stars', 'rating', 'distance', 'price')]
+```
+
+Before we start to build our models, a few more visualizations are useful for additional context:
+
+```{r, error = FALSE, warning = FALSE, echo = FALSE, message = FALSE, fig.width = 10, fig.height = 3}
+scatter1 <- ggplot(dt, aes(rating, price)) + geom_point() + geom_smooth() + 
+              scale_y_continuous(expand = c(0, 0), limits = c(0, 150)) +
+              scale_x_continuous(expand = c(0, 0), limits = c(0, 5.0)) +
+              labs(x = "Avg. Rating", y = "Hotel price (EUR)")
+scatter2 <- ggplot(dt, aes(distance, price)) + geom_point() + geom_smooth()+ 
+              scale_y_continuous(expand = c(0, 0), limits = c(0, 150)) +
+              scale_x_continuous(expand = c(0, 0), limits = c(0, 3.5)) +
+              labs(x = "Distance to city center (km)", y = "Hotel price (EUR)")
+scatter3 <- ggplot(dt, aes(distance, rating)) + geom_point() + geom_smooth()+ 
+              scale_y_continuous(expand = c(0, 0), limits = c(0, 5.0)) +
+              scale_x_continuous(expand = c(0, 0), limits = c(0, 3.5)) +
+              labs(x = "Distance to city center (km)", y = "Avg. Rating")
+
+multiplot(scatter1, scatter2, scatter3, cols = 3)
+
+ggplot(dt, aes(factor(stars), distance)) + geom_boxplot()
+```
+
+An interesting relationship that we can see is between ratings, prices, and distances. It seems that hotels which around 1km distance have a bit of a bump in ratings (on average), and a clear positive relationship between ratings and prices.
+This tells us that distances alone might be insufficient to explain price differences, and more interestingly, that hotels in a certain distance seem to be the best (if we accept ratings and prices as indicators). I'll plot hotels on a map in a later section to further investigate this possibility.
+
+#### 4. Create a binary variable of distance (below/above cutoff of your choice) and regress price on this binary variable. Report, interpret and visualize the results. (1-2 sentences)
 

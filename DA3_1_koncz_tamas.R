@@ -35,14 +35,14 @@ ggplot(dt, aes(rating, price)) + geom_point() + geom_smooth(method = 'lm')
 ggplot(dt, aes(distance, price)) + geom_point() + geom_smooth(method = 'lm')
 ggplot(dt, aes(distance, rating)) + geom_point() + geom_smooth(method = 'lm')
 
+ggplot(dt, aes(factor(stars), distance)) + geom_boxplot()
 
-ggplot(dt, aes(1, distance)) + geom_boxplot()
 
-cutoff <- dt[, median(distance)]
-dt[, is_close := distance < cutoff]
 head(dt)
 
 ## binary
+cutoff <- dt[, median(distance)]
+dt[, is_close := distance < cutoff]
 
 binary_model <- dt[, .(avg_price = mean(price)), by = is_close]
 ggplot(binary_model, aes(is_close, avg_price)) + geom_point() + 
