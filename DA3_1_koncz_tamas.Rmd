@@ -115,8 +115,10 @@ multiplot(p, p + facet_wrap(~stars), cols = 2)
 The relationship between the variables are not straightforward based on a scatterplot visualization.
 With the help of a loess smoothing, we can also observe that it is likely not linear across all distances.
 
-The right hand chart is the same scatterplot but breaken down to different hotel star categories. We can observe significant differences in the distribution among prices in the different categories, that could be part of the explaination the non-linearities.
+The right hand chart is the same scatterplot but breaken down to different hotel star categories. We can observe significant differences in the distribution among prices in the different categories, that could be part of the explaination for non-linearities.
 (More on this later)
+
+
 
 #### 2. Sample definition: You may or may not want to drop some observations; make a choice and argue for it (1-2 sentences).
 
@@ -124,7 +126,9 @@ In the next step I'll define a sub-sample of all previous records for further an
 I admit the choices are made are somewhat arbitrary and they are not aiming to remove errorneous values (something that we'll see in a later question).
 
 The decisions to remove certain records are primaraly due to two reasons:
+  
   1. I wanted to build the model in a range where are observations are "dense enough". In certain data ranges, where we don't have enough observations, a simple model can over-react
+  
   2. In real-life examples we will always have certain constraints. If we are looking for the best hotel value, we still might have a budget (capped in 150 euros below), and a distance we are willing to walk at the worst case (3.5km below)
   
 
@@ -155,8 +159,63 @@ multiplot(scatter1, scatter2, scatter3, cols = 3)
 ggplot(dt, aes(factor(stars), distance)) + geom_boxplot()
 ```
 
-An interesting relationship that we can see is between ratings, prices, and distances. It seems that hotels which around 1km distance have a bit of a bump in ratings (on average), and a clear positive relationship between ratings and prices.
+An interesting relationship that we can see is among ratings, prices, and distances. It seems that hotels which are around 1km away from the city center have a bit of a bump in ratings (on average), and a clear positive relationship between ratings and prices.
 This tells us that distances alone might be insufficient to explain price differences, and more interestingly, that hotels in a certain distance seem to be the best (if we accept ratings and prices as indicators). I'll plot hotels on a map in a later section to further investigate this possibility.
 
 #### 4. Create a binary variable of distance (below/above cutoff of your choice) and regress price on this binary variable. Report, interpret and visualize the results. (1-2 sentences)
 
+First, let's create the new variable (I arbitrarly chose the median as cutoff value), and define our simple model:
+
+
+```{r, error = FALSE, warning = FALSE, echo = TRUE, message = FALSE, fig.width = 10, fig.height = 3}
+cutoff <- dt[, median(distance)]
+dt[, is_close := distance < cutoff]
+
+binary_model <- dt[, .(avg_price = mean(price)), by = is_close]
+dt[, binary_pred := mean(price), by = is_close]
+
+r2_binary <- var(dt$binary_pred) / var(dt$price)
+```
+
+
+And now visualize the results and the model's explanatory power:
+
+
+```{r, error = FALSE, warning = FALSE, echo = FALSE, message = FALSE, fig.width = 10, fig.height = 3}
+ggplot(binary_model, aes(is_close, avg_price)) + geom_point() + 
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 150)) +
+  labs(x = paste(c("Distance closer than ", toString(cutoff), "km?"), collapse = ""), y = "Hotel price (EUR)") +
+  geom_text(aes(label = round(avg_price, 2)), hjust = - 0.1, vjust = 1) +
+  geom_text(aes(x = 2, y = 140), label = paste("R^2 of the model:", toString(round(r2_binary, 4))), sep = " ")
+```
+
+This model is very simple, using two averages to predict price for all distances - not necessarly a bad thing, however we can see that it only explains little to none (1.2%) of the variance in hotel prices. We could improve on this by adding more distance points to predict for (or possibly with a better chosen cutoff value), but it is better worth moving on to more sophistacted models.
+
+#### Estimate a lowess nonparametric regression of price on distance. Report, interpret and visualize the results. (1-2 sentences)
+
+First, create the model and its predictions:
+
+
+```{r, error = FALSE, warning = FALSE, echo = TRUE, message = FALSE, fig.width = 10, fig.height = 3}
+loess_model <- loess(price ~ distance, dt)
+dt$loess_pred <- predict(loess_model)
+r2_loess <- var(dt$loess_pred) / var(dt$price)
+```
+
+Visualizations of the results:
+
+```{r, error = FALSE, warning = FALSE, echo = FALSE, message = FALSE, fig.width = 10, fig.height = 3}
+ggplot(dt, aes(distance, price)) + geom_point() + 
+  geom_smooth(method = 'loess') +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 175)) +
+  scale_x_continuous(expand = c(0, 0), limits = c(0, 4)) +
+  labs(x = paste(c("Distance to city center (km)"), collapse = ""), y = "Hotel price (EUR)") +
+  geom_text(aes(x = 3.75, y = 165), label = paste("R^2: ", toString(round(r2_loess, 4))), sep = " ")
+
+## summary(loess_model)
+```
+
+If we concentrate on the model's fit, we can see an improvement compared to the previous example, as R^2 increased to 0.0768 - which still indicates arelatively small, but not ignorable correlation between the two variables.
+There is a drawback to this model however - as it is non-parametric, we can't use it for explanaing the relationships in our data.
+
+The flip side is however that the model is very flexible, and able to capture non-linearities (as seen in the plot above) - I'll be using its R^2 later for ranking other methods.

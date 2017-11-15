@@ -7,7 +7,7 @@ str(dt)
 head(dt)
 
 
-dt[, .N, by = accommodation_type][order(-N)]
+##dt[, .N, by = accommodation_type][order(-N)]
 
 dt <- hotels[accommodation_type %in% c('Hotel', 'Hostel'), ]
 dt <- dt[stars >= 2, ]
