@@ -10,6 +10,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 library(data.table)
 library(ggplot2)
+library(lspline)
 
 # Multiple plot function
 #
@@ -162,7 +163,7 @@ ggplot(dt, aes(factor(stars), distance)) + geom_boxplot()
 An interesting relationship that we can see is among ratings, prices, and distances. It seems that hotels which are around 1km away from the city center have a bit of a bump in ratings (on average), and a clear positive relationship between ratings and prices.
 This tells us that distances alone might be insufficient to explain price differences, and more interestingly, that hotels in a certain distance seem to be the best (if we accept ratings and prices as indicators). I'll plot hotels on a map in a later section to further investigate this possibility.
 
-#### 4. Create a binary variable of distance (below/above cutoff of your choice) and regress price on this binary variable. Report, interpret and visualize the results. (1-2 sentences)
+#### 3. Create a binary variable of distance (below/above cutoff of your choice) and regress price on this binary variable. Report, interpret and visualize the results. (1-2 sentences)
 
 First, let's create the new variable (I arbitrarly chose the median as cutoff value), and define our simple model:
 
@@ -191,7 +192,7 @@ ggplot(binary_model, aes(is_close, avg_price)) + geom_point() +
 
 This model is very simple, using two averages to predict price for all distances - not necessarly a bad thing, however we can see that it only explains little to none (1.2%) of the variance in hotel prices. We could improve on this by adding more distance points to predict for (or possibly with a better chosen cutoff value), but it is better worth moving on to more sophistacted models.
 
-#### Estimate a lowess nonparametric regression of price on distance. Report, interpret and visualize the results. (1-2 sentences)
+#### 4. Estimate a lowess nonparametric regression of price on distance. Report, interpret and visualize the results. (1-2 sentences)
 
 First, create the model and its predictions:
 
@@ -219,3 +220,75 @@ If we concentrate on the model's fit, we can see an improvement compared to the 
 There is a drawback to this model however - as it is non-parametric, we can't use it for explanaing the relationships in our data.
 
 The flip side is however that the model is very flexible, and able to capture non-linearities (as seen in the plot above) - I'll be using its R^2 later for ranking other methods.
+
+#### 5. Estimate a simple linear regression of price on distance. Report, interpret and visualize the results. (1-2 sentences)
+
+The model & predictions:
+
+```{r, error = FALSE, warning = FALSE, echo = TRUE, message = FALSE, fig.width = 10, fig.height = 3}
+simpleLM_model <- lm(price ~ distance, dt)
+dt$simpleLM_pred <- predict(simpleLM_model)
+
+r2_simpleLM <- var(dt$simpleLM_pred) / var(dt$price)
+simpleLM_formula <- as.formula(
+  paste0("price ~ ", round(coefficients(simpleLM_model)[1],2), "", 
+    paste(sprintf(" %+.2f*%s ", 
+                  coefficients(simpleLM_model)[-1],  
+                  names(coefficients(simpleLM_model)[-1])), 
+          collapse="")
+  )
+)
+format(simpleLM_formula)
+```
+
+Visualizations of the results:
+
+```{r, error = FALSE, warning = FALSE, echo = FALSE, message = FALSE, fig.width = 10, fig.height = 3}
+ggplot(dt, aes(distance, price)) + geom_point() + 
+  geom_smooth(method = 'lm') +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 175)) +
+  scale_x_continuous(expand = c(0, 0), limits = c(0, 4)) +
+  labs(x = paste(c("Distance to city center (km)"), collapse = ""), y = "Hotel price (EUR)") +
+  geom_text(aes(x = 3.5, y = 155), label = paste("R^2: ", toString(round(r2_simpleLM, 4)), sep = " ")) +
+  geom_text(aes(x = 3.5, y = 165), label = format(simpleLM_formula))
+
+
+## summary(simpleLM_model)
+```
+
+
+#### 6. Estimate a linear regression of price on distance that captures potential nonlinearities (polynomials, splies). Report, interpret and visualize the results. (1-2 sentences)
+
+The model & predictions:
+
+```{r, error = FALSE, warning = FALSE, echo = TRUE, message = FALSE, fig.width = 10, fig.height = 3}
+##1 knot
+spline_1knot_model <- lm(price ~ lspline(distance, cutoff), data=dt)
+dt$spline_1knot_pred <- predict(spline_1knot_model)
+r2_spline_1knot <- var(dt$spline_1knot_pred) / var(dt$price)
+
+## 2 knots
+knots = c(1, 2.5)
+spline_2knot_model <- lm(price ~ lspline(distance, knots), data = dt)
+dt$spline_2knot_pred <- predict(spline_2knot_model)
+r2_spline_2knot <- var(dt$spline_2knot_pred) / var(dt$price)
+
+```
+
+Visualizations of the results:
+
+```{r, error = FALSE, warning = FALSE, echo = FALSE, message = FALSE, fig.width = 10, fig.height = 5}
+p_1knot <- ggplot(data = dt, aes(x=distance, y=price)) +
+  geom_point(size=1.5, colour="orange",shape=4) +
+  labs(x="Distance to city center (km)",y="Hotel price (EUR)")+
+  geom_line(data=dt,aes(x=distance,y=spline_1knot_pred),colour="blue")+
+  geom_vline(xintercept=cutoff,colour="red")
+
+p_2knots <- ggplot(data = dt, aes(x = distance, y = price)) +
+  geom_point(size = 1.5, colour = "orange", shape = 4) +
+  labs(x = "Distance to city center (km)", y = "Hotel price (EUR)") +
+  geom_line(data = dt, aes(x = distance, y = spline_2knot_pred), colour = "blue") +
+  geom_vline(xintercept = knots, colour = "red")
+
+multiplot(p_1knot, p_2knots, cols = 2)
+```
