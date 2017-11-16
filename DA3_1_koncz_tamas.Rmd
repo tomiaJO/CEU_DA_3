@@ -11,6 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(data.table)
 library(ggplot2)
 library(lspline)
+library(ggmap)
 
 # Multiple plot function
 #
@@ -161,7 +162,7 @@ ggplot(dt, aes(factor(stars), distance)) + geom_boxplot()
 ```
 
 An interesting relationship that we can see is among ratings, prices, and distances. It seems that hotels which are around 1km away from the city center have a bit of a bump in ratings (on average), and a clear positive relationship between ratings and prices.
-This tells us that distances alone might be insufficient to explain price differences, and more interestingly, that hotels in a certain distance seem to be the best (if we accept ratings and prices as indicators). I'll plot hotels on a map in a later section to further investigate this possibility.
+This tells us that distances alone might be insufficient to explain price differences, and more interestingly, that hotels in a certain distance seem to be the best (if we accept ratings and prices as indicators). 
 
 #### 3. Create a binary variable of distance (below/above cutoff of your choice) and regress price on this binary variable. Report, interpret and visualize the results. (1-2 sentences)
 
@@ -222,7 +223,7 @@ There is a drawback to this model however - as it is non-parametric, we can't us
 The flip side is however that the model is very flexible, and able to capture non-linearities (as seen in the plot above) - I'll be using its R^2 later for ranking other methods.
 
 #### 5. Estimate a simple linear regression of price on distance. Report, interpret and visualize the results. (1-2 sentences)
-
+ 
 The model & predictions:
 
 ```{r, error = FALSE, warning = FALSE, echo = TRUE, message = FALSE, fig.width = 10, fig.height = 3}
@@ -248,7 +249,7 @@ ggplot(dt, aes(distance, price)) + geom_point() +
   geom_smooth(method = 'lm') +
   scale_y_continuous(expand = c(0, 0), limits = c(0, 175)) +
   scale_x_continuous(expand = c(0, 0), limits = c(0, 4)) +
-  labs(x = paste(c("Distance to city center (km)"), collapse = ""), y = "Hotel price (EUR)") +
+  labs(x = "Distance to city center (km)", y = "Hotel price (EUR)") +
   geom_text(aes(x = 3.5, y = 155), label = paste("R^2: ", toString(round(r2_simpleLM, 4)), sep = " ")) +
   geom_text(aes(x = 3.5, y = 165), label = format(simpleLM_formula))
 
@@ -256,16 +257,21 @@ ggplot(dt, aes(distance, price)) + geom_point() +
 ## summary(simpleLM_model)
 ```
 
+A good thing about a linear model is that its results are very easily interpretable. Here, we could say every kilometer we go further from the city center is expected to save us 2.5 euros on average in the hotel price. This results is however very weak, the fit is possibly zero, and our line is close to flat.
 
 #### 6. Estimate a linear regression of price on distance that captures potential nonlinearities (polynomials, splies). Report, interpret and visualize the results. (1-2 sentences)
 
-The model & predictions:
+
+First, let's build a spline with 1 and 2 knots.
+
+The models & predictions:
 
 ```{r, error = FALSE, warning = FALSE, echo = TRUE, message = FALSE, fig.width = 10, fig.height = 3}
 ##1 knot
 spline_1knot_model <- lm(price ~ lspline(distance, cutoff), data=dt)
 dt$spline_1knot_pred <- predict(spline_1knot_model)
 r2_spline_1knot <- var(dt$spline_1knot_pred) / var(dt$price)
+
 
 ## 2 knots
 knots = c(1, 2.5)
@@ -282,13 +288,84 @@ p_1knot <- ggplot(data = dt, aes(x=distance, y=price)) +
   geom_point(size=1.5, colour="orange",shape=4) +
   labs(x="Distance to city center (km)",y="Hotel price (EUR)")+
   geom_line(data=dt,aes(x=distance,y=spline_1knot_pred),colour="blue")+
-  geom_vline(xintercept=cutoff,colour="red")
+  geom_vline(xintercept=cutoff,colour="red") +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 175)) +
+  scale_x_continuous(expand = c(0, 0), limits = c(0, 4)) +
+  geom_text(aes(x = 3.5, y = 155), label = paste("R^2: ", toString(round(r2_spline_1knot, 4)), sep = " "))
 
 p_2knots <- ggplot(data = dt, aes(x = distance, y = price)) +
   geom_point(size = 1.5, colour = "orange", shape = 4) +
   labs(x = "Distance to city center (km)", y = "Hotel price (EUR)") +
   geom_line(data = dt, aes(x = distance, y = spline_2knot_pred), colour = "blue") +
-  geom_vline(xintercept = knots, colour = "red")
+  geom_vline(xintercept = knots, colour = "red") +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 175)) +
+  scale_x_continuous(expand = c(0, 0), limits = c(0, 4)) +
+  geom_text(aes(x = 3.5, y = 155), label = paste("R^2: ", toString(round(r2_spline_2knot, 4)), sep = " "))
 
 multiplot(p_1knot, p_2knots, cols = 2)
+coefficients(spline_1knot_model)
+coefficients(spline_2knot_model)
 ```
+
+One of the challanges with using splines is that the knots need to be manually specified - for this example, I tried to use 'turning points' from our earlier lowess regression.
+Analyzing the results we can see that there is indeed a significant change in terms of price ~ distnace dynamics in the data around the knots. However, our fit is still weak (both by eye-balling the graphs and seeing the R^2-s). There is some improvement compared to the simple linear regression, however this model would still not be of much use in real life.
+
+
+We can also try to address non-linearites in the data by adding polinomal terms of our RHS variables.
+Let's see what happens if we use the square and cubic of distance as well:
+
+ 
+```{r, error = FALSE, warning = FALSE, echo = FALSE, message = FALSE, fig.width = 10, fig.height = 5}
+dt$distance_sq <- dt$distance ^ 2
+dt$distance_cub <- dt$distance ^ 3
+
+## square
+sqLM_model <- lm(price ~ distance + distance_sq, dt)
+dt$sqLM_pred <- predict(sqLM_model)
+r2_sqLM <- var(dt$sqLM_pred) / var(dt$price)
+
+##cubic
+cubLM_model <- lm(price ~ distance + distance_sq + distance_cub, dt)
+dt$cubLM_pred <- predict(cubLM_model)
+r2_cubLM <- var(dt$cubLM_pred) / var(dt$price)
+```
+
+```{r, error = FALSE, warning = FALSE, echo = FALSE, message = FALSE, fig.width = 10, fig.height = 5}
+p_sqLM <- ggplot(data = dt, aes(x = distance, y = price)) + geom_point(size = 2, color = "orange", shape = 4) +
+  labs(x = "Distance to city center (km)", y = "Hotel price (EUR)") +
+  geom_line(data = dt, aes(x = distance, y = cubLM_pred), color = "blue") +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 175)) +
+  scale_x_continuous(expand = c(0, 0), limits = c(0, 4)) +
+  geom_text(aes(x = 3.5, y = 155), label = paste("R^2: ", toString(round(r2_sqLM, 4)), sep = " "))
+
+
+p_cubLM <- ggplot(data = dt, aes(x = distance, y = price)) + geom_point(size = 2, color = "orange", shape = 4) +
+  labs(x = "Distance to city center (km)", y = "Hotel price (EUR)") +
+  geom_line(data = dt, aes(x = distance, y = sqLM_pred), color = "blue") +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 175)) +
+  scale_x_continuous(expand = c(0, 0), limits = c(0, 4)) +
+  geom_text(aes(x = 3.5, y = 155), label = paste("R^2: ", toString(round(r2_cubLM, 4)), sep = " "))
+
+multiplot(p_sqLM, p_cubLM, cols = 2)
+coefficients(sqLM_model)
+coefficients(cubLM_model)
+```
+
+I'm not going to spend much time here as the results are very similar to what we have observed previously: the fit is weak, but we can observe some relationship, that exhibits non-linear traits as well.
+
+
+#### 7. Discuss your overall findings. (2-3 sentences)
+
+Honestly, I am suprised how little relationship I could uncover between distance and hotel prices in the selected sample for Barcelona. 
+
+This could be related to several reasons: 
+
+  1. unobserved variables (which is not a suprise with only one predictor)
+  2. the definition of city center - I was plotting the locations on a map, and given Barcelona's dynamic city structure, it could be highly likely that certain parts of the city (e.g. less-good neighborhoods close to the city center) could make the relationship between price and distance very complex
+  3. the definition of the sample was incorrect (I'll get back to this in the last question)
+  4. or simply that there is no explanatory power of distance to city center against hotel prices
+  
+What was not suprising is that more flexible models tended to perform better (but still not so well) - however, most of the presented models achieved this with a trade-off in interpretation, something that might or might not be a problem depending on the business case.
+
+#### +1: See what happens when you estimate your models on a selected subsample (ie exclude some hotels based on stars, or location). Discuss the role of cleaning and sample selection.
+
