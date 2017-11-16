@@ -1,8 +1,10 @@
 ---
-title: "DA3_1_koncz_tamas_1611_17"
+title: "DA3_1_koncz_tamas_161117"
 author: "Tamas Koncz"
 date: '2017 november 16 '
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include = FALSE}
@@ -118,7 +120,7 @@ The relationship between the variables are not straightforward based on a scatte
 With the help of a loess smoothing, we can also observe that it is likely not linear across all distances.
 
 The right hand chart is the same scatterplot but breaken down to different hotel star categories. We can observe significant differences in the distribution among prices in the different categories, that could be part of the explaination for non-linearities.
-(More on this later)
+(As I've seen no clear data problems that should have been addressed)
 
 
 
@@ -217,7 +219,7 @@ ggplot(dt, aes(distance, price)) + geom_point() +
 ## summary(loess_model)
 ```
 
-If we concentrate on the model's fit, we can see an improvement compared to the previous example, as R^2 increased to 0.0768 - which still indicates arelatively small, but not ignorable correlation between the two variables.
+If we concentrate on the model's fit, we can see an improvement compared to the previous example, as R^2 increased to 0.0768 - which still indicates a relatively small, but maybe not ignorable correlation between the two variables.
 There is a drawback to this model however - as it is non-parametric, we can't use it for explanaing the relationships in our data.
 
 The flip side is however that the model is very flexible, and able to capture non-linearities (as seen in the plot above) - I'll be using its R^2 later for ranking other methods.
@@ -307,8 +309,8 @@ coefficients(spline_1knot_model)
 coefficients(spline_2knot_model)
 ```
 
-One of the challanges with using splines is that the knots need to be manually specified - for this example, I tried to use 'turning points' from our earlier lowess regression.
-Analyzing the results we can see that there is indeed a significant change in terms of price ~ distnace dynamics in the data around the knots. However, our fit is still weak (both by eye-balling the graphs and seeing the R^2-s). There is some improvement compared to the simple linear regression, however this model would still not be of much use in real life.
+One of the challanges with using splines is that the knots need to be manually specified - for this example, I tried to use 'turning points' from our earlier lowess model.
+Analyzing the results we can see that there is indeed a significant change in terms of price ~ distance dynamics in the data around the knots. However, our fit is still weak (both by eye-balling the graphs and seeing the R^2-s). There is some improvement compared to the simple linear regression, however this model would still not be of much use in real life.
 
 
 We can also try to address non-linearites in the data by adding polinomal terms of our RHS variables.
@@ -362,7 +364,7 @@ This could be related to several reasons:
 
   1. unobserved variables (which is not a suprise with only one predictor)
   2. the definition of city center - I was plotting the locations on a map, and given Barcelona's dynamic city structure, it could be highly likely that certain parts of the city (e.g. less-good neighborhoods close to the city center) could make the relationship between price and distance very complex
-  3. the definition of the sample was incorrect (I'll get back to this in the last question)
+  3. the definition of the sample was not optimal for our purpose
   4. or simply that there is no explanatory power of distance to city center against hotel prices
   
 What was not suprising is that more flexible models tended to perform better (but still not so well) - however, most of the presented models achieved this with a trade-off in interpretation, something that might or might not be a problem depending on the business case.
@@ -371,7 +373,7 @@ What was not suprising is that more flexible models tended to perform better (bu
 
 First, let's create the sub-sample based on more specific filtering, building on the plots uncovering the relationship between stars and hotel prices in Question #1. Building a 1 knot spline for this sub-sample:
 
-```{r, error = FALSE, warning = FALSE, echo = FALSE, message = FALSE, fig.width = 10, fig.height = 5}
+```{r, error = FALSE, warning = FALSE, echo = TRUE, message = FALSE, fig.width = 10, fig.height = 5}
 dt <- hotels[accommodation_type == 'Hotel', ]
 dt <- dt[rating > 3.5, ]
 dt <- dt[city == 'Barcelona', ]
@@ -399,7 +401,7 @@ ggplot(data = dt, aes(x=distance, y=price)) +
 coefficients(spline_subsample_model)
 ```
 
-I think we can call these results promising. With the same model as we used in a previous excersize, we could increase the fit, R^2 went from 0.03 to 0.14 for the same model type, which we could not disregard as insignificant anymore.
+I think we can call these results promising. With the same model as we used in a previous excersize, we could increase the fit, R^2 went from 0.03 to 0.16 for the same model type, which we could not disregard as insignificant anymore.
 Basically, what we achieved is substituting an unobserved variable in our model with a more precisely selected sample.
 
 

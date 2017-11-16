@@ -106,7 +106,7 @@ ggplot(data = dt, aes(x=distance, y=price)) +
   geom_point(size=1.5, colour="orange",shape=4) +
   labs(x="Distance to city center (km)",y="Hotel price (EUR)")+
   geom_line(data=dt,aes(x=distance,y=spline_1knot_pred),colour="blue")+
-  geom_vline(xintercept=cutoff,colour="red") + geom_la
+  geom_vline(xintercept=cutoff,colour="red")
 
 r2_spline_1knot <- var(dt$spline_1knot_pred) / var(dt$price)
 r2_spline_1knot
