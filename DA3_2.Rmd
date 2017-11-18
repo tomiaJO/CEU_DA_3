@@ -1,0 +1,28 @@
+---
+title: "DA3_2"
+author: "Tamas Koncz"
+date: '2017 november 18 '
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(ggplot2)
+library(data.table)
+library(wbstats)
+library(tidyverse)
+
+```
+
+
+```{r}
+
+x <- wb(country = "all", indicator = c("NY.GDP.PCAP.PP.KD", "SP.DYN.LE00.IN") , startdate = 2015, enddate = 2015)
+countries <- data.table(x)
+
+dt <- countries[, c('value', 'country', 'indicator')]
+dt <- spread(dt, key = 'indicator', value = 'value', fill = NA) 
+
+
+```
