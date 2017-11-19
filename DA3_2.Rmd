@@ -12,17 +12,161 @@ library(ggplot2)
 library(data.table)
 library(wbstats)
 library(tidyverse)
+library(lspline)
+
+
+# Multiple plot function
+#
+# ggplot objects can be passed in ..., or to plotlist (as a list of ggplot objects)
+# - cols:   Number of columns in layout
+# - layout: A matrix specifying the layout. If present, 'cols' is ignored.
+#
+# If the layout is something like matrix(c(1,2,3,3), nrow=2, byrow=TRUE),
+# then plot 1 will go in the upper left, 2 will go in the upper right, and
+# 3 will go all the way across the bottom.
+#
+multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
+  require(grid)
+
+  # Make a list from the ... arguments and plotlist
+  plots <- c(list(...), plotlist)
+
+  numPlots = length(plots)
+
+  # If layout is NULL, then use 'cols' to determine layout
+  if (is.null(layout)) {
+    # Make the panel
+    # ncol: Number of columns of plots
+    # nrow: Number of rows needed, calculated from # of cols
+    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
+                    ncol = cols, nrow = ceiling(numPlots/cols))
+  }
+
+ if (numPlots==1) {
+    print(plots[[1]])
+
+  } else {
+    # Set up the page
+    grid.newpage()
+    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
+
+    # Make each plot, in the correct location
+    for (i in 1:numPlots) {
+      # Get the i,j matrix positions of the regions that contain this subplot
+      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
+
+      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
+                                      layout.pos.col = matchidx$col))
+    }
+  }
+}
 
 ```
 
+#### Download cross-country data on life expectancy and GDP per capita. “GDP per capita, PPP (constant)” and “Life expectancy at birth (total)”
 
-```{r}
+#### 1. Delete unnecessary columns and save a csv file with three columns only: country name, life expectancy and GDP per capita. Keep countries with non-missing values for life expectancy and GDP per capita. Document what you do. 
 
-x <- wb(country = "all", indicator = c("NY.GDP.PCAP.PP.KD", "SP.DYN.LE00.IN") , startdate = 2015, enddate = 2015)
+First, we'll use the WB API for getting our data set to R.
+
+
+```{r data_collection}
+
+x <- wb(country = "countries_only", indicator = c("NY.GDP.PCAP.PP.KD", "SP.DYN.LE00.IN", "SP.POP.TOTL") , startdate = 2015, enddate = 2015)
 countries <- data.table(x)
 
-dt <- countries[, c('value', 'country', 'indicator')]
-dt <- spread(dt, key = 'indicator', value = 'value', fill = NA) 
-
-
 ```
+
+Once we have the data loaded,format the data into a workable format.
+We are making four transformations:
+
+  1. We are creating separate columns for each of our variables
+  
+  2. Columns are renamed to short names for easier coding
+  
+  3. Rows with NA values are removed
+  
+  4. Population is redefined as population in millions for easier handling
+  
+As a last step, we save our data table to a csv file as requested in the exercise.
+
+```{r data_prep_2}
+dt <- countries[, c('value', 'country', 'indicator')]
+dt <- spread(dt, key = 'indicator', value = 'value', fill = NA)  
+
+#saving string names for later use (charts, ...)
+s_country = colnames(dt)[1]
+s_gdp = "GDP per capita, $" ##colnames(dt)[2]
+s_life_exp = "Life exp. at birth, years)" ##colnames(dt)[3]
+s_pop = "Population, million" ##colnames(dt)[4]
+s_lnpop = "log(Population, million)"
+s_lngdp = "log(GDP per capita, $)"
+
+setnames(dt, old = colnames(dt), new = c('country', 'gdp', 'life_exp', 'pop'))
+
+dt <- dt[is.na(gdp) == FALSE, ]
+dt <- dt[is.na(pop) == FALSE, ]
+dt <- dt[is.na(life_exp) == FALSE, ]
+
+dt[, pop := pop / 1000000]
+dt[, lngdp := log(gdp)]
+
+write.csv(x = dt, file = 'WD_Data_Filtered.csv')
+```
+
+Before we create our models, let's explore our data set visually.
+First, using histograms to visualize single-variable distributions:
+```{r data_viz_1, error = FALSE, warning = FALSE, echo = FALSE, message = FALSE, fig.width = 10, fig.height = 3}
+p1 <- ggplot(data = dt, aes(gdp)) + geom_histogram(binwidth = 2500) + 
+  scale_x_continuous(labels = scales::comma) + 
+  labs(x = s_gdp)
+p2 <- ggplot(data = dt, aes(lngdp)) + geom_histogram(binwidth = .25) +
+  labs(x = s_lngdp)
+
+multiplot(p1, p2, cols = 2)
+
+p3 <- ggplot(data = dt, aes(life_exp)) + geom_histogram(binwidth = 5) + 
+  labs(x = s_life_exp)
+
+p4 <- ggplot(data = dt, aes(pop)) + geom_histogram(binwidth = 25) + 
+  scale_x_continuous(labels = scales::comma) + 
+  labs(x = s_pop)
+
+p5 <- ggplot(data = dt, aes(log(pop))) + geom_histogram() + 
+  scale_x_continuous(labels = scales::comma) + 
+  labs(x = paste("log(", s_pop, ")", sep = ""))
+
+multiplot(p3, p4, p5, cols = 3)
+```
+  
+  
+Then, we'll take a look at multi-varite distributions with scatterplots (inc. default loess lines).
+(Bubble sizes show the size of the population)  
+
+
+```{r data_viz_2, error = FALSE, warning = FALSE, echo = FALSE, message = FALSE, fig.width = 10, fig.height = 6}
+p6 <- ggplot(data = dt, aes(lngdp, life_exp)) + geom_point(size = log(dt$pop) / 1.5, color = 'orange') + 
+  geom_smooth(method = 'loess') + 
+  labs(x = s_lngdp, y = s_life_exp)
+
+p8 <- ggplot(data = dt, aes(lngdp, pop)) + geom_point(size = log(dt$pop) / 1.5, color = 'orange') + 
+  geom_smooth(method = 'loess') + 
+  labs(x = s_lngdp, y = s_pop)
+
+p7 <- ggplot(data = dt, aes(life_exp, pop)) + geom_point(size = log(dt$pop) / 1.5, color = 'orange') + 
+  geom_smooth(method = 'loess') + 
+  labs(x = s_life_exp, y = s_pop)
+
+p9 <- ggplot(data = dt, aes(lngdp, log(pop))) + geom_point(size = log(dt$pop) / 1.5, color = 'orange') + 
+  geom_smooth(method = 'loess') + 
+  labs(x = s_lngdp, y = s_lnpop)
+
+multiplot(p6, p7, p8, p9, cols = 2)
+```
+
+
+
+#### 2. Estimate a lowess regression of life expectancy on ln gdp per capita. Estimate a linear regression of life expectancy on GDP per capita that best captures the nonlinearity you found (life expectancy on a piecewise linear spline or a polynomial in the explanatory variable). Argue for your choice. Report the coefficient estimates as well as their confidence interval, interpret and visualize the results. 
+
+
+
