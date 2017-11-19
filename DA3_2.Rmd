@@ -7,6 +7,13 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(error = FALSE)
+knitr::opts_chunk$set(warning = FALSE)
+knitr::opts_chunk$set(message = FALSE)
+knitr::opts_chunk$set(fig.width = 10)
+knitr::opts_chunk$set(fig.height = 3)
+knitr::opts_chunk$set(fig.align='center')
+
 
 library(ggplot2)
 library(data.table)
@@ -116,23 +123,24 @@ write.csv(x = dt, file = 'WD_Data_Filtered.csv')
 
 Before we create our models, let's explore our data set visually.
 First, using histograms to visualize single-variable distributions:
-```{r data_viz_1, error = FALSE, warning = FALSE, echo = FALSE, message = FALSE, fig.width = 10, fig.height = 3}
-p1 <- ggplot(data = dt, aes(gdp)) + geom_histogram(binwidth = 2500) + 
+```{r data_viz_1}
+p1 <- ggplot(data = dt, aes(gdp)) + geom_histogram(binwidth = 2500, fill = 'orange') + 
   scale_x_continuous(labels = scales::comma) + 
   labs(x = s_gdp)
-p2 <- ggplot(data = dt, aes(lngdp)) + geom_histogram(binwidth = .25) +
+
+p2 <- ggplot(data = dt, aes(lngdp)) + geom_histogram(binwidth = .25, fill = 'orange') +
   labs(x = s_lngdp)
 
 multiplot(p1, p2, cols = 2)
 
-p3 <- ggplot(data = dt, aes(life_exp)) + geom_histogram(binwidth = 5) + 
+p3 <- ggplot(data = dt, aes(life_exp)) + geom_histogram(binwidth = 5, fill = 'orange') + 
   labs(x = s_life_exp)
 
-p4 <- ggplot(data = dt, aes(pop)) + geom_histogram(binwidth = 25) + 
+p4 <- ggplot(data = dt, aes(pop)) + geom_histogram(binwidth = 25, fill = 'orange') + 
   scale_x_continuous(labels = scales::comma) + 
   labs(x = s_pop)
 
-p5 <- ggplot(data = dt, aes(log(pop))) + geom_histogram() + 
+p5 <- ggplot(data = dt, aes(log(pop))) + geom_histogram(fill = 'orange') + 
   scale_x_continuous(labels = scales::comma) + 
   labs(x = paste("log(", s_pop, ")", sep = ""))
 
@@ -144,21 +152,24 @@ Then, we'll take a look at multi-varite distributions with scatterplots (inc. de
 (Bubble sizes show the size of the population)  
 
 
-```{r data_viz_2, error = FALSE, warning = FALSE, echo = FALSE, message = FALSE, fig.width = 10, fig.height = 6}
-p6 <- ggplot(data = dt, aes(lngdp, life_exp)) + geom_point(size = log(dt$pop) / 1.5, color = 'orange') + 
-  geom_smooth(method = 'loess') + 
+```{r data_viz_2, fig.height = 6}
+gp <- geom_point(size = log(dt$pop) / 1.5, color = 'orange')
+gs <- geom_smooth(method = 'loess')
+
+p6 <- ggplot(data = dt, aes(lngdp, life_exp)) + gp + 
+  gs + 
   labs(x = s_lngdp, y = s_life_exp)
 
 p8 <- ggplot(data = dt, aes(lngdp, pop)) + geom_point(size = log(dt$pop) / 1.5, color = 'orange') + 
   geom_smooth(method = 'loess') + 
   labs(x = s_lngdp, y = s_pop)
 
-p7 <- ggplot(data = dt, aes(life_exp, pop)) + geom_point(size = log(dt$pop) / 1.5, color = 'orange') + 
-  geom_smooth(method = 'loess') + 
+p7 <- ggplot(data = dt, aes(life_exp, pop)) +  gp + 
+  gs +
   labs(x = s_life_exp, y = s_pop)
 
-p9 <- ggplot(data = dt, aes(lngdp, log(pop))) + geom_point(size = log(dt$pop) / 1.5, color = 'orange') + 
-  geom_smooth(method = 'loess') + 
+p9 <- ggplot(data = dt, aes(lngdp, log(pop))) + gp + 
+  gs + 
   labs(x = s_lngdp, y = s_lnpop)
 
 multiplot(p6, p7, p8, p9, cols = 2)
@@ -168,5 +179,12 @@ multiplot(p6, p7, p8, p9, cols = 2)
 
 #### 2. Estimate a lowess regression of life expectancy on ln gdp per capita. Estimate a linear regression of life expectancy on GDP per capita that best captures the nonlinearity you found (life expectancy on a piecewise linear spline or a polynomial in the explanatory variable). Argue for your choice. Report the coefficient estimates as well as their confidence interval, interpret and visualize the results. 
 
+```{r lowess, fig.width = 5, fig.height = 4}
+lowess_model <- loess(life_exp ~ lngdp, data = dt)
+dt$lowess_pred <- predict(lowess_model)
 
+ggplot(data = dt, aes(lngdp, life_exp)) + gp + 
+  geom_line(data = dt, aes(lngdp, lowess_pred), color = 'blue')
+
+summary(lowess_model)
 
