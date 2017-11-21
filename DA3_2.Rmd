@@ -103,8 +103,8 @@ dt <- spread(dt, key = 'indicator', value = 'value', fill = NA)
 
 #saving string names for later use (charts, ...)
 s_country = colnames(dt)[1]
-s_gdp = "GDP per capita, $" ##colnames(dt)[2]
-s_life_exp = "Life exp. at birth, years)" ##colnames(dt)[3]
+s_gdp = "GDP / capita, $" ##colnames(dt)[2]
+s_life_exp = "Life exp. at birth, yrs" ##colnames(dt)[3]
 s_pop = "Population, million" ##colnames(dt)[4]
 s_lnpop = "log(Population, million)"
 s_lngdp = "log(GDP per capita, $)"
@@ -124,7 +124,7 @@ write.csv(x = dt, file = 'WD_Data_Filtered.csv')
 Before we create our models, let's explore our data set visually.
 First, using histograms to visualize single-variable distributions:
 
-##TODO: add mean / median lines
+
 ```{r data_viz_1, echo = FALSE}
 p1 <- ggplot(data = dt, aes(gdp)) + geom_histogram(binwidth = 2500, fill = 'orange') + 
   scale_x_continuous(labels = scales::comma) + 
@@ -137,9 +137,9 @@ p1 <- ggplot(data = dt, aes(gdp)) + geom_histogram(binwidth = 2500, fill = 'oran
 
 p2 <- ggplot(data = dt, aes(lngdp)) + geom_histogram(binwidth = .25, fill = 'orange') +
   labs(x = s_lngdp) +
-  geom_text(aes(x = median(dt$lngdp), y = 10), label ='median', color = 'blue', angle = 90, vjust = 1.0) +
+  geom_text(aes(x = median(dt$lngdp), y = 12.5), label ='median', color = 'blue', angle = 90, vjust = 1.0) +
   geom_vline(xintercept = median(dt$lngdp), color = 'blue') +
-  geom_text(aes(x = mean(dt$lngdp), y = 10), label ='mean', color = 'blue', angle = 90, vjust = 1.0) +
+  geom_text(aes(x = mean(dt$lngdp), y = 12.5), label ='mean', color = 'blue', angle = 90, vjust = 1.0) +
   geom_vline(xintercept = mean(dt$lngdp), color = 'blue')
 
 multiplot(p1, p2, cols = 2)
@@ -175,7 +175,7 @@ Then, we'll take a look at multi-varite distributions with scatterplots (inc. de
 (Bubble sizes show the size of the population)  
 
 
-```{r data_viz_2, fig.height = 6}
+```{r data_viz_2, echo = FALSE, fig.height = 6}
 gp <- geom_point(size = log(dt$pop) / 1.5, color = 'orange')
 gs <- geom_smooth(method = 'loess')
 
@@ -206,20 +206,27 @@ multiplot(p6, p7, p8, p9, cols = 2)
 ##lowess
 lowess_model <- loess(life_exp ~ lngdp, data = dt)
 dt$lowess_pred <- predict(lowess_model)
-summary(lowess_model)
+##summary(lowess_model)
 
 ##linear regression
 lm_ln_model <- lm(life_exp ~ lngdp, data = dt)
 dt$lm_ln_pred <- predict(lm_ln_model)
 
 r2_lm_ln <- summary(lm_ln_model)$r.squared
-summary(lm_ln_model)
+##summary(lm_ln_model)
+formula_lm_ln = paste(s_life_exp,"~", round(coefficients(lm_ln_model)[1], 2), 
+                      "+", round(coefficients(lm_ln_model)[2], 2), "*", s_lngdp, sep = " ")
+
+##significant on all usual confidence levels!
 
 lm_model <- lm(life_exp ~ gdp, data = dt)
 dt$lm_pred <- predict(lm_model)
 
 r2_lm <- summary(lm_model)$r.squared
-summary(lm_model)
+##summary(lm_model)
+formula_lm = paste(s_life_exp,"~", round(coefficients(lm_model)[1], 2), 
+                      "+", format(coefficients(lm_model)[2], digits = 2), "*", s_lngdp, sep = " ")
+##significant on all usual confidence levels!
 
 ##spline
 knot = 10.5
@@ -227,7 +234,10 @@ spline_model <- lm(life_exp ~ lspline(lngdp, knot), data = dt)
 dt$spline_pred <- predict(spline_model)
 
 r2_spline <- summary(spline_model)$r.squared
-summary(spline_model)
+##summary(spline_model)
+formula_spline = paste(s_life_exp,"~", round(coefficients(spline_model)[1], 2), 
+                      "+\n    ", round(coefficients(spline_model)[2], 2), "*", s_lngdp, "(<10.5)", 
+                      "+\n    ", round(coefficients(spline_model)[3], 2), "*", s_lngdp, "(>10.5)", sep = " ")
 
 
 ## polynomial
@@ -238,14 +248,20 @@ lm_sq_model <- lm(life_exp ~ lngdp + lngdp_sq, data = dt)
 dt$lm_sq_pred <- predict(lm_sq_model)
 
 r2_lm_sq <- summary(lm_sq_model)$r.squared
-summary(lm_sq_model)
-
+##summary(lm_sq_model)
+formula_lm_sq = paste(s_life_exp,"~", round(coefficients(lm_sq_model)[1], 2), 
+                      "+\n    ", round(coefficients(lm_sq_model)[2], 2), "*", s_lngdp, 
+                      "+\n    ", round(coefficients(lm_sq_model)[3], 2), "*", s_lngdp, sep = " ")
 
 lm_cub_model <- lm(life_exp ~ lngdp + lngdp_sq + lngdp_cub, data = dt)
 dt$lm_cub_pred <- predict(lm_cub_model)
 
 r2_lm_cub <- summary(lm_cub_model)$r.squared
-summary(lm_cub_model)
+##summary(lm_cub_model)
+formula_lm_cub = paste(s_life_exp,"~", round(coefficients(lm_cub_model)[1], 2), 
+                      "+\n    ", round(coefficients(lm_cub_model)[2], 2), "*", s_lngdp, 
+                      "+\n    ", round(coefficients(lm_cub_model)[3], 2), "*", s_lngdp, 
+                      "+\n    ", round(coefficients(lm_cub_model)[4], 2), "*", s_lngdp, sep = " ")
 
 ```
 ##TODO: add formulas to text
@@ -262,33 +278,33 @@ p_lowess <- ggplot(data = dt, aes(gdp, life_exp)) + gp + l + s_y + s_x +
 p_lm <- ggplot(data = dt, aes(gdp, life_exp)) + gp + l + s_y + s_x +
   geom_line(data = dt, aes(gdp, lm_pred), color = 'blue') +
   ggtitle("Model: Linear Regression") +
-  geom_text(aes(x = 6000, y = 49), label = "lngdp ~ dfs", size = 4, hjust = 0) +
-  geom_text(aes(x = 6000, y = 46), label = paste("R^2 =", round(r2_lm, 4), sep =" ") , size = 4, hjust = 0)
+  geom_text(aes(x = 200, y = 89), label = formula_lm, size = 4, hjust = 0) +
+  geom_text(aes(x = 200, y = 86), label = paste("R^2 =", round(r2_lm, 4), sep =" ") , size = 4, hjust = 0)
 
 p_lm_ln <- ggplot(data = dt, aes(gdp, life_exp)) + gp +  l + s_y + s_x +
   geom_line(data = dt, aes(gdp, lm_ln_pred), color = 'blue') +
   ggtitle("Model: Log - Level Linear Regression") +
-  geom_text(aes(x = 6000, y = 49), label = "lngdp ~ dfs", size = 4, hjust = 0) +
-  geom_text(aes(x = 6000, y = 46), label = paste("R^2 =", round(r2_lm_ln, 4), sep =" "), size = 4, hjust = 0)
+  geom_text(aes(x = 200, y = 89), label = formula_lm_ln, size = 4, hjust = 0) +
+  geom_text(aes(x = 200, y = 86), label = paste("R^2 =", round(r2_lm_ln, 4), sep =" "), size = 4, hjust = 0)
 
 p_spline <- ggplot(data = dt, aes(gdp, life_exp)) + gp +  l + s_y + s_x +
   geom_line(data = dt, aes(gdp, spline_pred), color = 'blue', size = .7) +
   geom_vline(xintercept = exp(knot), color = 'red', size = .7) +
   ggtitle("Model: Spline w/ 1 knot") +
-  geom_text(aes(x = 6000, y = 49), label = "lngdp ~ dfs", size = 4, hjust = 0) +
-  geom_text(aes(x = 6000, y = 46), label = paste("R^2 =", round(r2_spline, 4), sep =" "), size = 4, hjust = 0)
+  geom_text(aes(x = 200, y = 87), label = formula_spline, size = 4, hjust = 0) +
+  geom_text(aes(x = 200, y = 82), label = paste("R^2 =", round(r2_spline, 4), sep =" "), size = 4, hjust = 0)
 
 p_lm_sq <- ggplot(data = dt, aes(gdp, life_exp)) + gp + l + s_y + s_x +
   geom_line(data = dt, aes(gdp, lm_sq_pred), color = 'blue', size = .7) +
   ggtitle("Model: Linear Regression w/ square polinom") +
-  geom_text(aes(x = 6000, y = 49), label = "lngdp ~ dfs", size = 4, hjust = 0) +
-  geom_text(aes(x = 6000, y = 46), label = paste("R^2 =", round(r2_lm_sq, 4), sep =" "), size = 4, hjust = 0)
+  geom_text(aes(x = 200, y = 87), label = formula_lm_sq, size = 4, hjust = 0) +
+  geom_text(aes(x = 200, y = 82), label = paste("R^2 =", round(r2_lm_sq, 4), sep =" "), size = 4, hjust = 0)
 
 p_lm_cub <- ggplot(data = dt, aes(gdp, life_exp)) + gp + l + s_y + s_x +
   geom_line(data = dt, aes(gdp, lm_cub_pred), color = 'blue', size = .7) +
   ggtitle("Model: Linear Regression w/ cubic polinom") +
-  geom_text(aes(x = 6000, y = 49), label = "lngdp ~ dfs", size = 4, hjust = 0) +
-  geom_text(aes(x = 6000, y = 46), label = paste("R^2 =", round(r2_lm_cub, 4), sep =" "), size = 4, hjust = 0)
+  geom_text(aes(x = 200, y = 85), label = formula_lm_cub, size = 4, hjust = 0) +
+  geom_text(aes(x = 200, y = 79), label = paste("R^2 =", round(r2_lm_cub, 4), sep =" "), size = 4, hjust = 0)
 
 multiplot(p_lowess, p_lm, p_spline, p_lm_ln, p_lm_sq, p_lm_cub, cols = 2)
 ```
@@ -301,6 +317,7 @@ multiplot(p_lowess, p_lm, p_spline, p_lm_ln, p_lm_sq, p_lm_cub, cols = 2)
 lm_weighted_model <- lm(life_exp ~ lngdp, weights = pop, data = dt)
 dt$lm_weighted_pred <- predict(lm_weighted_model)
 r2_lm_weighted <- summary(lm_weighted_model)$r.squared
+
 ```
 
 
