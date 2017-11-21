@@ -125,26 +125,47 @@ Before we create our models, let's explore our data set visually.
 First, using histograms to visualize single-variable distributions:
 
 ##TODO: add mean / median lines
-```{r data_viz_1}
+```{r data_viz_1, echo = FALSE}
 p1 <- ggplot(data = dt, aes(gdp)) + geom_histogram(binwidth = 2500, fill = 'orange') + 
   scale_x_continuous(labels = scales::comma) + 
-  labs(x = s_gdp)
+  labs(x = s_gdp) +
+  geom_text(aes(x = median(dt$gdp), y = 35), label ='median', color = 'blue', angle = 90, vjust = 1.0) +
+  geom_vline(xintercept = median(dt$gdp), color = 'blue') +
+  geom_text(aes(x = mean(dt$gdp), y = 35), label ='mean', color = 'blue', angle = 90, vjust = 1.0) +
+  geom_vline(xintercept = mean(dt$gdp), color = 'blue')
+
 
 p2 <- ggplot(data = dt, aes(lngdp)) + geom_histogram(binwidth = .25, fill = 'orange') +
-  labs(x = s_lngdp)
+  labs(x = s_lngdp) +
+  geom_text(aes(x = median(dt$lngdp), y = 10), label ='median', color = 'blue', angle = 90, vjust = 1.0) +
+  geom_vline(xintercept = median(dt$lngdp), color = 'blue') +
+  geom_text(aes(x = mean(dt$lngdp), y = 10), label ='mean', color = 'blue', angle = 90, vjust = 1.0) +
+  geom_vline(xintercept = mean(dt$lngdp), color = 'blue')
 
 multiplot(p1, p2, cols = 2)
 
 p3 <- ggplot(data = dt, aes(life_exp)) + geom_histogram(binwidth = 5, fill = 'orange') + 
-  labs(x = s_life_exp)
+  labs(x = s_life_exp) +
+  geom_text(aes(x = median(dt$life_exp), y = 45), label ='median', color = 'blue', angle = 90, vjust = 1.0) +
+  geom_vline(xintercept = median(dt$life_exp), color = 'blue') +
+  geom_text(aes(x = mean(dt$life_exp), y = 45), label ='mean', color = 'blue', angle = 90, vjust = 1.0) +
+  geom_vline(xintercept = mean(dt$life_exp), color = 'blue')
 
 p4 <- ggplot(data = dt, aes(pop)) + geom_histogram(binwidth = 25, fill = 'orange') + 
   scale_x_continuous(labels = scales::comma) + 
-  labs(x = s_pop)
+  labs(x = s_pop) +
+  geom_text(aes(x = median(dt$pop), y = 90), label ='median', color = 'blue', angle = 90, vjust = 1.0) +
+  geom_vline(xintercept = median(dt$pop), color = 'blue') +
+  geom_text(aes(x = mean(dt$pop), y = 90), label ='mean', color = 'blue', angle = 90, vjust = 1.0) +
+  geom_vline(xintercept = mean(dt$pop), color = 'blue')
 
 p5 <- ggplot(data = dt, aes(log(pop))) + geom_histogram(fill = 'orange') + 
   scale_x_continuous(labels = scales::comma) + 
-  labs(x = paste("log(", s_pop, ")", sep = ""))
+  labs(x = paste("log(", s_pop, ")", sep = "")) +
+  geom_text(aes(x = median(log(dt$pop)), y = 15), label ='median', color = 'blue', angle = 90, vjust = 1.0) +
+  geom_vline(xintercept = median(log(dt$pop)), color = 'blue') +
+  geom_text(aes(x = mean(log(dt$pop)), y = 15), label ='mean', color = 'blue', angle = 90, vjust = 1.0) +
+  geom_vline(xintercept = mean(log(dt$pop)), color = 'blue')
 
 multiplot(p3, p4, p5, cols = 3)
 ```
