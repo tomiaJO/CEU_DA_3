@@ -84,10 +84,10 @@ countries <- data.table(x)
 
 ```
 
-Once we have the data loaded,format the data into a workable format.
+Once we have the data loaded, we format the data into a workable format.
 We are making four transformations:
 
-  1. We are creating separate columns for each of our variables
+  1. Separate columns created for each of our variables
   
   2. Columns are renamed to short names for easier coding
   
@@ -202,11 +202,17 @@ multiplot(p6, p7, p8, p9, cols = 2)
 
 #### 2. Estimate a lowess regression of life expectancy on ln gdp per capita. Estimate a linear regression of life expectancy on GDP per capita that best captures the nonlinearity you found (life expectancy on a piecewise linear spline or a polynomial in the explanatory variable). Argue for your choice. Report the coefficient estimates as well as their confidence interval, interpret and visualize the results. 
 
-```{r models}
+
+Below code was used to create our different models:  
+
+
+```{r models, echo = FALSE}
 ##lowess
 lowess_model <- loess(life_exp ~ lngdp, data = dt)
 dt$lowess_pred <- predict(lowess_model)
 ##summary(lowess_model)
+
+r2_lowess <- var(dt$lowess_pred) / var(dt$life_exp)
 
 ##linear regression
 lm_ln_model <- lm(life_exp ~ lngdp, data = dt)
@@ -225,7 +231,7 @@ dt$lm_pred <- predict(lm_model)
 r2_lm <- summary(lm_model)$r.squared
 ##summary(lm_model)
 formula_lm = paste(s_life_exp,"~", round(coefficients(lm_model)[1], 2), 
-                      "+", format(coefficients(lm_model)[2], digits = 2), "*", s_lngdp, sep = " ")
+                      "+", format(coefficients(lm_model)[2], digits = 2), "*", s_gdp, sep = " ")
 ##significant on all usual confidence levels!
 
 ##spline
@@ -264,7 +270,11 @@ formula_lm_cub = paste(s_life_exp,"~", round(coefficients(lm_cub_model)[1], 2),
                       "+\n    ", round(coefficients(lm_cub_model)[4], 2), "*", s_lngdp, sep = " ")
 
 ```
-##TODO: add formulas to text
+
+
+Visualizing the results:  
+
+
 
 ```{r model_viz, echo = FALSE, fig.height = 15}
 l <- labs(x = s_gdp, y = s_life_exp)
@@ -273,7 +283,8 @@ s_x <-scale_x_continuous(expand = c(0, 0), limits = c(0, 13500))
 
 p_lowess <- ggplot(data = dt, aes(gdp, life_exp)) + gp + l + s_y + s_x +
   geom_line(data = dt, aes(gdp, lowess_pred), color = 'blue') +
-  ggtitle("Model: Lowess")
+  ggtitle("Model: Lowess") +
+  geom_text(aes(x = 200, y = 86), label = paste("R^2 =", round(r2_lowess, 4), sep=" "), size = 4, hjust = 0)
 
 p_lm <- ggplot(data = dt, aes(gdp, life_exp)) + gp + l + s_y + s_x +
   geom_line(data = dt, aes(gdp, lm_pred), color = 'blue') +
@@ -310,6 +321,18 @@ multiplot(p_lowess, p_lm, p_spline, p_lm_ln, p_lm_sq, p_lm_cub, cols = 2)
 ```
 
 
+Note on the visuals: The different plots has been scaled back to show the non-log GDP / capita on the X axis, even if the models were run on the log transformation.
+
+
+The results follow our expactations - the more complex models tend to drive slightly better fits in the sample. Having small differences is actually key in selecting our favored model.
+
+While a simple linear regression on non-log GDP is visibly not the best model, from models run on log(GDP per capita) we actually argue to select the simplest one, our log-linear regression. This model's fit in the sample (measured by R^2) is just insignificantly behind of the more complex models'. Also, based on p values, only the beta of log(GDP) variable is significant on the 95% and 99% confidence levels.
+
+This model, with close to .7 R^2 actually carries a very strong predictive power. We can interpret the formula as follows: a country with 1% higher GDP / capita is expected to have a life expetancy higher by 0.0542 years on average.
+
+One factor that this model leaves unexplored is the difference is different countries populations. We explore that in the next section.
+
+## TODO Report the coefficient estimates as well as their confidence interval, interpret and visualize the results. 
 
 #### 3. Estimate a weighted regression (weight=population). Compare results to what we saw in class. 
 
@@ -329,3 +352,7 @@ ggplot(data = dt, aes(gdp, life_exp))  + gp + l + s_y + s_x +
   geom_text(aes(x = 6000, y = 49), label = "lngdp ~ dfs", size = 4, hjust = 0) +
   geom_text(aes(x = 6000, y = 46), label = paste("R^2 =", round(r2_lm_weighted, 4), sep =" "), size = 4, hjust = 0)
 ```
+
+
+## TODO explain
+## TODO update formula
