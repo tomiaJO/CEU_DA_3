@@ -2,10 +2,14 @@
 title: "DA3_2"
 author: "Tamas Koncz"
 date: '2017 november 18 '
-output: html_document
+output:
+  html_document: default
+  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
+
+library(knitr)
 knitr::opts_chunk$set(echo = TRUE)
 knitr::opts_chunk$set(error = FALSE)
 knitr::opts_chunk$set(warning = FALSE)
@@ -20,7 +24,13 @@ library(data.table)
 library(wbstats)
 library(tidyverse)
 library(lspline)
+library(lmtest)
+library(sandwich)
+library(haven)
 library(pander)
+library(dplyr)
+library(plyr)
+library(stargazer)
 
 
 # Multiple plot function
@@ -80,7 +90,7 @@ First, we'll use the WB API for getting our data set to R.
 
 ```{r data_collection}
 
-x <- wb(country = "countries_only", indicator = c("NY.GDP.PCAP.PP.KD", "SP.DYN.LE00.IN", "SP.POP.TOTL") , startdate = 2015, enddate = 2015)
+x <- wb(country = "countries_only", indicator = c("NY.GDP.PCAP.CD", "SP.DYN.LE00.IN", "SP.POP.TOTL") , startdate = 2015, enddate = 2015)
 countries <- data.table(x)
 
 ```
@@ -104,11 +114,11 @@ dt <- spread(dt, key = 'indicator', value = 'value', fill = NA)
 
 #saving string names for later use (charts, ...)
 s_country = colnames(dt)[1]
-s_gdp = "GDP / capita, $" ##colnames(dt)[2]
-s_life_exp = "Life exp. at birth, yrs" ##colnames(dt)[3]
-s_pop = "Population, million" ##colnames(dt)[4]
-s_lnpop = "log(Population, million)"
-s_lngdp = "log(GDP per capita, $)"
+s_gdp = "GDP / cap., $" ##colnames(dt)[2]
+s_life_exp = "Life Exp. @ birth, yr" ##colnames(dt)[3]
+s_pop = "Population, MN" ##colnames(dt)[4]
+s_lnpop = "log(Population, MN)"
+s_lngdp = "log(GDP / cap., $)"
 
 setnames(dt, old = colnames(dt), new = c('country', 'gdp', 'life_exp', 'pop'))
 
@@ -221,8 +231,8 @@ dt$lm_ln_pred <- predict(lm_ln_model)
 
 r2_lm_ln <- summary(lm_ln_model)$r.squared
 ##summary(lm_ln_model)
-formula_lm_ln = paste(s_life_exp,"~", round(coefficients(lm_ln_model)[1], 2), 
-                      "+", round(coefficients(lm_ln_model)[2], 2), "*", s_lngdp, sep = " ")
+formula_lm_ln = paste(s_life_exp,"~", round(coefficients(lm_ln_model)[1], 1), 
+                      "+", round(coefficients(lm_ln_model)[2], 1), "*", s_lngdp, sep = " ")
 
 ##significant on all usual confidence levels!
 
@@ -231,8 +241,8 @@ dt$lm_pred <- predict(lm_model)
 
 r2_lm <- summary(lm_model)$r.squared
 ##summary(lm_model)
-formula_lm = paste(s_life_exp,"~", round(coefficients(lm_model)[1], 2), 
-                      "+", format(coefficients(lm_model)[2], digits = 2), "*", s_gdp, sep = " ")
+formula_lm = paste(s_life_exp,"~", round(coefficients(lm_model)[1], 1), 
+                      "+", format(coefficients(lm_model)[2], digits = 1), "*", s_gdp, sep = " ")
 ##significant on all usual confidence levels!
 
 ##spline
@@ -242,9 +252,9 @@ dt$spline_pred <- predict(spline_model)
 
 r2_spline <- summary(spline_model)$r.squared
 ##summary(spline_model)
-formula_spline = paste(s_life_exp,"~", round(coefficients(spline_model)[1], 2), 
-                      "+\n    ", round(coefficients(spline_model)[2], 2), "*", s_lngdp, "(<10.5)", 
-                      "+\n    ", round(coefficients(spline_model)[3], 2), "*", s_lngdp, "(>10.5)", sep = " ")
+formula_spline = paste(s_life_exp,"~", round(coefficients(spline_model)[1], 1), 
+                      "+", round(coefficients(spline_model)[2], 1), "*", s_lngdp, "(<10.5)", 
+                      "+\n    ", round(coefficients(spline_model)[3], 1), "*", s_lngdp, "(>10.5)", sep = " ")
 
 
 ## polynomial
@@ -256,19 +266,19 @@ dt$lm_sq_pred <- predict(lm_sq_model)
 
 r2_lm_sq <- summary(lm_sq_model)$r.squared
 ##summary(lm_sq_model)
-formula_lm_sq = paste(s_life_exp,"~", round(coefficients(lm_sq_model)[1], 2), 
-                      "+\n    ", round(coefficients(lm_sq_model)[2], 2), "*", s_lngdp, 
-                      "+\n    ", round(coefficients(lm_sq_model)[3], 2), "*", s_lngdp, sep = " ")
+formula_lm_sq = paste(s_life_exp,"~", round(coefficients(lm_sq_model)[1], 1), 
+                      "+", round(coefficients(lm_sq_model)[2], 1), "*", s_lngdp, 
+                      "+\n    ", round(coefficients(lm_sq_model)[3], 1), "*", s_lngdp, sep = " ")
 
 lm_cub_model <- lm(life_exp ~ lngdp + lngdp_sq + lngdp_cub, data = dt)
 dt$lm_cub_pred <- predict(lm_cub_model)
 
 r2_lm_cub <- summary(lm_cub_model)$r.squared
 ##summary(lm_cub_model)
-formula_lm_cub = paste(s_life_exp,"~", round(coefficients(lm_cub_model)[1], 2), 
-                      "+\n    ", round(coefficients(lm_cub_model)[2], 2), "*", s_lngdp, 
-                      "+\n    ", round(coefficients(lm_cub_model)[3], 2), "*", s_lngdp, 
-                      "+\n    ", round(coefficients(lm_cub_model)[4], 2), "*", s_lngdp, sep = " ")
+formula_lm_cub = paste(s_life_exp,"~", round(coefficients(lm_cub_model)[1], 1), 
+                      "+", round(coefficients(lm_cub_model)[2], 1), "*", s_lngdp, 
+                      "+\n    ", round(coefficients(lm_cub_model)[3], 1), "*", s_lngdp, 
+                      "+", round(coefficients(lm_cub_model)[4], 1), "*", s_lngdp, sep = " ")
 
 ```
 
@@ -280,43 +290,43 @@ Visualizing the results:
 ```{r model_viz, echo = FALSE, fig.height = 15}
 l <- labs(x = s_gdp, y = s_life_exp)
 s_y <- scale_y_continuous(limits = c(45, 90))
-s_x <-scale_x_continuous(expand = c(0, 0), limits = c(0, 13500))
+s_x <-scale_x_continuous(expand = c(0, 0), limits = c(0, 120000))
 
 p_lowess <- ggplot(data = dt, aes(gdp, life_exp)) + gp + l + s_y + s_x +
   geom_line(data = dt, aes(gdp, lowess_pred), color = 'blue') +
   ggtitle("Model: Lowess") +
-  geom_text(aes(x = 200, y = 86), label = paste("R^2 =", round(r2_lowess, 4), sep=" "), size = 4, hjust = 0)
+  geom_text(aes(x = 200, y = 87), label = paste("R^2 =", round(r2_lowess, 4), sep=" "), size = 4, hjust = 0, vjust = 0)
 
 p_lm <- ggplot(data = dt, aes(gdp, life_exp)) + gp + l + s_y + s_x +
   geom_line(data = dt, aes(gdp, lm_pred), color = 'blue') +
   ggtitle("Model: Linear Regression") +
-  geom_text(aes(x = 200, y = 89), label = formula_lm, size = 4, hjust = 0) +
-  geom_text(aes(x = 200, y = 86), label = paste("R^2 =", round(r2_lm, 4), sep =" ") , size = 4, hjust = 0)
+  geom_text(aes(x = 200, y = 90), label = formula_lm, size = 4, hjust = 0, vjust = 0) +
+  geom_text(aes(x = 200, y = 87), label = paste("R^2 =", round(r2_lm, 4), sep =" ") , size = 4, hjust = 0, vjust = 0)
 
 p_lm_ln <- ggplot(data = dt, aes(gdp, life_exp)) + gp +  l + s_y + s_x +
   geom_line(data = dt, aes(gdp, lm_ln_pred), color = 'blue') +
   ggtitle("Model: Level - Log Linear Regression") +
-  geom_text(aes(x = 200, y = 89), label = formula_lm_ln, size = 4, hjust = 0) +
-  geom_text(aes(x = 200, y = 86), label = paste("R^2 =", round(r2_lm_ln, 4), sep =" "), size = 4, hjust = 0)
+  geom_text(aes(x = 200, y = 90), label = formula_lm_ln, size = 4, hjust = 0, vjust = 0) +
+  geom_text(aes(x = 200, y = 87), label = paste("R^2 =", round(r2_lm_ln, 4), sep =" "), size = 4, hjust = 0, vjust = 0)
 
 p_spline <- ggplot(data = dt, aes(gdp, life_exp)) + gp +  l + s_y + s_x +
   geom_line(data = dt, aes(gdp, spline_pred), color = 'blue', size = .7) +
   geom_vline(xintercept = exp(knot), color = 'red', size = .7) +
   ggtitle("Model: Spline w/ 1 knot") +
-  geom_text(aes(x = 200, y = 87), label = formula_spline, size = 4, hjust = 0) +
-  geom_text(aes(x = 200, y = 82), label = paste("R^2 =", round(r2_spline, 4), sep =" "), size = 4, hjust = 0)
+  geom_text(aes(x = 200, y = 88), label = formula_spline, size = 4, hjust = 0, vjust = 0) +
+  geom_text(aes(x = 200, y = 86), label = paste("R^2 =", round(r2_spline, 4), sep =" "), size = 4, hjust = 0)
 
 p_lm_sq <- ggplot(data = dt, aes(gdp, life_exp)) + gp + l + s_y + s_x +
   geom_line(data = dt, aes(gdp, lm_sq_pred), color = 'blue', size = .7) +
   ggtitle("Model: Linear Regression w/ square polinom") +
-  geom_text(aes(x = 200, y = 87), label = formula_lm_sq, size = 4, hjust = 0) +
-  geom_text(aes(x = 200, y = 82), label = paste("R^2 =", round(r2_lm_sq, 4), sep =" "), size = 4, hjust = 0)
+  geom_text(aes(x = 200, y = 88), label = formula_lm_sq, size = 4, hjust = 0, vjust = 0) +
+  geom_text(aes(x = 200, y = 86), label = paste("R^2 =", round(r2_lm_sq, 4), sep =" "), size = 4, hjust = 0, vjust = 0)
 
 p_lm_cub <- ggplot(data = dt, aes(gdp, life_exp)) + gp + l + s_y + s_x +
   geom_line(data = dt, aes(gdp, lm_cub_pred), color = 'blue', size = .7) +
   ggtitle("Model: Linear Regression w/ cubic polinom") +
-  geom_text(aes(x = 200, y = 85), label = formula_lm_cub, size = 4, hjust = 0) +
-  geom_text(aes(x = 200, y = 79), label = paste("R^2 =", round(r2_lm_cub, 4), sep =" "), size = 4, hjust = 0)
+  geom_text(aes(x = 200, y = 88), label = formula_lm_cub, size = 4, hjust = 0, vjust = 0) +
+  geom_text(aes(x = 200, y = 86), label = paste("R^2 =", round(r2_lm_cub, 4), sep =" "), size = 4, hjust = 0, vjust = 0)
 
 multiplot(p_lowess, p_lm, p_spline, p_lm_ln, p_lm_sq, p_lm_cub, cols = 2)
 ```
@@ -325,71 +335,28 @@ multiplot(p_lowess, p_lm, p_spline, p_lm_ln, p_lm_sq, p_lm_cub, cols = 2)
 Note on the visuals: The different plots has been scaled back to show the non-log GDP / capita on the X axis, even if the models were run on the log transformation.
 
 
-The results follow our expactations - the more complex models tend to drive slightly better fits in the sample. Having small differences is actually key in selecting our favored model.
+The results follow our expactations - the more complex models tend to drive slightly better fits in the sample. Having small differences is actually key in selecting our favored model:
 
-While a simple linear regression on non-log GDP is visibly not the best model, from models run on log(GDP per capita) we actually argue to select the simplest one, our log-linear regression. This model's fit in the sample (measured by R^2) is just insignificantly behind of the more complex models'. Also, based on p values, only the beta of log(GDP) variable is significant on the 95% and 99% confidence levels.
+While a simple linear regression on non-log GDP is visibly not the best model, from models run on log(GDP per capita) we actually argue to select the simplest one, our log-linear regression.  
+This model's fit in the sample (measured by R^2 and visually) is just insignificantly behind of the more complex models' - this fact in itself justifies the use of the simpler model, as we should only opt for more complexity if we can increase our predictive power (and even then trade-offs like possible overfit should be examined, which is not analyzed here). 
 
-Supporting our decision, below is a summary for the different variables used in different models (level - level excluded):
+Also, based on p values, only the beta of log(GDP) variable is significant on the 95% and 99% confidence levels.
+Supporting our decision, below is a summary for the coefficients and their confidence intervals in different models:
 
-```{r conf_int, echo = FALSE}
-dt_summaries <- data.table(all.vars(as.formula(lm_ln_model)))
-dt_summaries <- cbind(dt_summaries, data.table(summary(lm_ln_model)$coefficient))
-dt_summaries <- cbind(dt_summaries, "Level - Log Linear Regression")
 
-temp <- data.table(all.vars(as.formula(lm_model)))
-temp <- cbind(temp, data.table(summary(lm_model)$coefficients))
-temp <- cbind(temp, "Linear Regression")
 
-dt_summaries <- rbind(dt_summaries, temp)
-
-temp <- data.table(all.vars(as.formula(spline_model)))
-temp <- cbind(temp, data.table(summary(spline_model)$coefficients))
-temp <- cbind(temp, "Spline w/ 1 knot")
-
-dt_summaries <- rbind(dt_summaries, temp)
-
-temp <- data.table(all.vars(as.formula(lm_sq_model)))
-temp <- cbind(temp, data.table(summary(lm_sq_model)$coefficients))
-temp <- cbind(temp, "Linear Regression w/ square polinom")
-
-dt_summaries <- rbind(dt_summaries, temp)
-
-temp <- data.table(all.vars(as.formula(lm_cub_model)))
-temp <- cbind(temp, data.table(summary(lm_cub_model)$coefficients))
-temp <- cbind(temp, "Linear Regression w/ cubic polinom")
-
-dt_summaries <- rbind(dt_summaries, temp)
-
-setnames(dt_summaries, c('x', 'beta', 'se', 't', 'p', 'model'))
-
-dt_summaries <- dt_summaries[x != "life_exp", ]
-
-dt_summaries[, ci_low := beta - se]
-dt_summaries[, ci_high := beta + se]
-
-dt_summaries[, is_sign_95 := p < 0.05]
-dt_summaries[, is_sign_99 := p < 0.01]
-
-dt_summaries[, model := factor(model, 
-                               levels = c("Level - Log Linear Regression", 
-                                          "Linear Regression",
-                                          "Spline w/ 1 knot", 
-                                          "Linear Regression w/ square polinom", 
-                                          "Linear Regression w/ cubic polinom")) ]
-
-ggplot(dt_summaries[x == "lngdp", ], aes(x = x, y = beta, ymin = ci_low, ymax = ci_high)) + 
-  geom_pointrange(color = 'orange') + 
-  facet_grid(~model, scales="free")
+```{r coeffs, results = "asis", echo = FALSE}
+stargazer(lm_ln_model, lm_model, spline_model, lm_sq_model, lm_cub_model,  header=FALSE, align = TRUE, type='html')
 ```
 
-```{r coeffs, echo = FALSE}
-pander(dt_summaries, split.table = Inf)
-```
+  
+    
+    
+The level-log linear model, with close to .7 R^2 actually carries a very strong predictive power. We can interpret the formula as follows: on a 95% confidence level, we can say that a country with 10% higher GDP / capita is expected to have a life expetancy higher by 0.45-0.49 years on average.
 
-
-The level-log linear model, with close to .7 R^2 actually carries a very strong predictive power. We can interpret the formula as follows: a country with 1% higher GDP / capita is expected to have a life expetancy higher by 0.0542 years on average.
-
-One factor that this model leaves unexplored is the difference is different countries populations. We explore that in the next section.
+One factor that this model leaves unexplored is the difference is different countries populations. We revisit that in the next section.  
+  
+  
 
 
 #### 3. Estimate a weighted regression (weight=population). Compare results to what we saw in class.   
@@ -397,26 +364,69 @@ One factor that this model leaves unexplored is the difference is different coun
 
 Modeling:  
 
-```{r w_regression}
+```{r w_regression, results = "asis"}
 lm_weighted_model <- lm(life_exp ~ lngdp, weights = pop, data = dt)
 dt$lm_weighted_pred <- predict(lm_weighted_model)
 r2_lm_weighted <- summary(lm_weighted_model)$r.squared
 
-formula_lm_weighted = paste(s_life_exp,"~", round(coefficients(lm_weighted_model)[1], 2), 
-                      "+", round(coefficients(lm_weighted_model)[2], 2), "*", s_lngdp, "\nweighted by", s_pop, sep = " ")
+formula_lm_weighted = paste(s_life_exp,"~", round(coefficients(lm_weighted_model)[1], 1), 
+                      "+", round(coefficients(lm_weighted_model)[2], 1), "*", s_lngdp, "\nweighted by", s_pop, sep = " ")
+
 ```
 
 
+
+```{r, results = "asis", echo = FALSE}
+stargazer(lm_weighted_model, lm_ln_model, header=FALSE, align = TRUE, type='html')
+```
+  
+    
 Visualizing results:  
+    
+  
+```{r model_viz_2, echo = FALSE, fig.height = 5, fig.width = 10}
+dt[, is_highlighted := ifelse(country %in% c('India', 'China', 'Switzerland'),  "orange","grey")]
+dt[, resid_w := lm_weighted_pred - life_exp]
+dt[, resid_nw := lm_ln_pred - life_exp]
 
-
-```{r model_viz_2, echo = FALSE, fig.height = 5, fig.width = 5}
-ggplot(data = dt, aes(gdp, life_exp))  + gp + l + s_y + s_x +
+p_w <- ggplot(data = dt, aes(gdp, life_exp))  + geom_point(size = log(dt$pop) / 1.5, color = dt$is_highlighted) + l + s_y + s_x +
   geom_line(data = dt, aes(gdp, lm_weighted_pred), color = 'blue', size = .7) +
   ggtitle("Model: Population weighted linear regression") +
-  geom_text(aes(x = 200, y = 85), label = formula_lm_weighted, size = 4, hjust = 0) +
-  geom_text(aes(x = 200, y = 81), label = paste("R^2 =", round(r2_lm_weighted, 4), sep =" "), size = 4, hjust = 0)
+  geom_text(aes(x = 200, y = 87), label = formula_lm_weighted, size = 4, hjust = 0, vjust = 0) +
+  geom_text(aes(x = 200, y = 85), label = paste("R^2 =", round(r2_lm_weighted, 4), sep =" "), size = 4, hjust = 0, vjust = 0.5) +
+  geom_text(aes(x = 80989.84, y = 82.22927), label = "SWI", hjust = 0, vjust = 0.5) + 
+  geom_text(aes(x = 13569.89, y = 76.1171), label = "CHI", hjust = 0, vjust = 0.5) +
+  geom_text(aes(x = 5754.065, y = 68.33261), label = "IND", hjust = 0, vjust = 0.5)
+
+p_nw <- ggplot(data = dt, aes(gdp, life_exp))  + geom_point(size = log(dt$pop) / 1.5, color = dt$is_highlighted) + l + s_y + s_x +
+  geom_line(data = dt, aes(gdp, lm_ln_pred), color = 'blue', size = .7) +
+  ggtitle("Model: Not weighted linear regression") +
+  geom_text(aes(x = 200, y = 89), label = formula_lm_ln, size = 4, hjust = 0, vjust = 0) +
+  geom_text(aes(x = 200, y = 87), label = paste("R^2 =", round(r2_lm_ln, 4), sep =" "), size = 4, hjust = 0, vjust = 0.5) +
+  geom_text(aes(x = 80989.84, y = 82.22927), label = "SWI", hjust = 0, vjust = 0.5) + 
+  geom_text(aes(x = 13569.89, y = 76.1171), label = "CHI", hjust = 0, vjust = 0.5) +
+  geom_text(aes(x = 5754.065, y = 68.33261), label = "IND", hjust = 0, vjust = 0.5)
+
+multiplot(p_w, p_nw, cols = 2)
+```
+
+Visually, it's hard to tell the difference between the two models, however we can see it in the R^2 and regression formula.
+
+To better understand of what is the difference between the weighted and the non-weighted models, consider the below tables showing predicted values and residuals for the two models:
+
+Largest 5 countries:
+```{r, echo = FALSE}
+kable(head(dt[order(-pop)][, c("country", "life_exp", "lm_weighted_pred", "resid_w", "lm_ln_pred", "resid_nw")]), digits = 2)
+```
+
+Smallest 5 countries:
+```{r, echo = FALSE}
+kable(head(dt[order(pop)][, c("country", "life_exp", "lm_weighted_pred", "resid_w", "lm_ln_pred", "resid_nw")]), digits = 2)
 ```
 
 
-## TODO explain
+What we see is that generally the fit improved for large countries, while it got worse for smaller ones (as expected).
+
+The difference comes from the actual interpretation of the data: while the simple regression predicts that life expectancy is ~.47 years longer on average **in countries** with 10% higher GDP per capita, the weighted one says that **people** who live in countries with 10% higher GDP per capita live longer by .44 years on average.
+
+While the actual coefficients are somewhat different from results seen in the class (even if the confidence intervals are incorporated), the dynamics are similar: most importantly, we cannot rule out confidently (on usual levels) that coefficients are different, the results are similar for both. This can be due to the fact observed in the lecture, that the largest countries are mostly around the middle of the GDP per capita distribution. 
