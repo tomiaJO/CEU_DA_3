@@ -163,6 +163,204 @@ ggplot(dt, aes(eduyears_mod)) + geom_histogram(binwidth = 1) +
   
 The distribution of education years is also similar between genders, however we can observe males having spent more time in higher education slightly more frequently.
 The distributions resemble that of the bell curve, however there are two apparent differences: most people finish their education after a certain amount of years (8-12-etc.), hence we can see these spikes on the bar chart as well, while there is a small uptake with people with 20 years - PhDs.
-(Note that the average person has just finished high school in this sample.)
+(Note that the average person has just finished high school in this sample.)  
 
 
+It is also interesting to examine the joint-distribtion of age and education:  
+
+
+```{r, echo = FALSE}
+dt[, age_cat := cut(age, breaks = 5 * (10:16), include.lowest = TRUE)]
+dt[, edu_cat := cut(eduyears_mod, breaks = 2 * (0:10), include.lowest = TRUE)]
+
+dt_heatmap1 <- dt[, .(cnt_cat = .N), by = c("female", "age_cat", "edu_cat")]
+dt_temp <- dt[, .(cnt_gender = .N), by = female]
+
+dt_heatmap1 <- merge(dt_heatmap1, dt_temp, all.x=TRUE)
+
+dt_heatmap1[, ratio_cat := cnt_cat / cnt_gender] 
+
+ggplot(data = dt_heatmap1, aes(x = age_cat, y = edu_cat)) +
+  geom_tile(aes(fill = ratio_cat), colour = "white") + 
+  scale_fill_gradient(low = "white", high = "steelblue") + 
+  facet_wrap(~ female)
+```
+
+
+The above heatmap gives us a good indication of the share of different age - education 'groups', showing share %-s for genders separately. 
+For both genders, most people are concentrated around ~12years of education for all age groups - older people are generally somewhat less educated than the younger groups.
+Also, a larger portion of males have spent 16+ years in education than females, both their share is very small for both genders, specially among older people.  
+  
+    
+    
+
+There are two people with 0 years of education, something that we could consider exterme values. 
+However, I have decided to keep them in the sample for two reasons: first, there is not enough evidance that this would be due to data quality issues. Secondly, they were not significantly influential on the regression results.
+
+
+```{r, echo = FALSE}
+pander(
+  dt[eduyears_mod == 0, c("deceased", "gender", "eduyears_mod", "income10g", "sports")]
+  )
+```
+  
+  
+Lastly, let's take a glimpse at the correlation matrix for our potential RHS variables (excl. gender):  
+
+
+```{r, echo = FALSE}
+pander(round(cor(dt[, c("age", "eduyears_mod", "income10g", "sports")]), 2))
+```
+
+(Note1: the correlation coefficient for sports should not be interpreted at face value, as the variable is categorical. However, given it's ordered, we can take some very cautious conclusions from it.
+Note2: the same is not a worry for income, as the 'income10' is treated variable as continous for the sake of this exercsie)  
+
+  
+The first observation we can make is that older people tend to do less sports in general (not suprisingly).
+Income and education are positively correlated, while both are negatively correlated with age, also in line with expectations.
+Most correlation coefficients are significant, but none are high in absolute terms - part of this can be attributed to non-linear relationships in our data.  
+
+
+Relationship between income and age visualized:
+
+```{r, echo = FALSE}
+dt_heatmap2 <- dt[, .(cnt_cat = .N), by = c("female", "age_cat", "income10g")]
+
+dt_heatmap2 <- merge(dt_heatmap2, dt_temp, all.x=TRUE)
+dt_temp <- NULL
+
+dt_heatmap2[, ratio_cat := cnt_cat / cnt_gender] 
+
+ggplot(data = dt_heatmap2, aes(x = age_cat, y = income10g)) +
+  geom_tile(aes(fill = ratio_cat), colour = "white") + 
+  scale_fill_gradient(low = "white", high = "steelblue") + 
+  facet_wrap(~ female)
+```
+
+Note the decrease with age, as well as the more even distribution among women.  
+  
+    
+    
+#### 2.1 Estimate a linear probability model (LPM) of mortality on sports. Report and interpret the results. 
+
+```{r}
+lpm <- lm(deceased ~ `factor(sports)1` + `factor(sports)2` + `factor(sports)3`,data = dt)
+dt$deceased_pred <- predict.lm(lpm)
+```
+  
+  
+Before interpreting model results, let's remind ourselves that the unconditional probability of someone dieing in the six years, based on the dataset is 5.7%:  
+
+```{r}
+sum(dt$deceased) / dt[,.N]
+```
+
+Now, onto the model coefficients:  
+
+```{r, echo = FALSE, results='asis'}
+stargazer(lpm, type = "html")
+```  
+
+  
+  
+  
+People who "hardly ever, or never" do sports die within 6 years with 9.2% chance
+People who do sports "one to three times a month" die with 4.2% less chance compared to people in the 4th (previous) group. They die with a 5% likeliness
+Peope who exercise even more die with 5.9% less chance compared to people in the first category (there were no significant difference between group 1 and 2). They die with a 3.3% likelihood
+Based on the p values, all coefficients are significant on the usual levels
+
+People who do more sports are a lot less likely to die based on the dataset. 
+Just based on this we cannot say however that doing sports make them "healthier" (clarification: but I do consider not dying healthier). 
+We *only* know that there is a correlation in the dataset. 
+However, it can be that even if the correlation is present in the general population as well, there is no causal relationship.
+Example: it could be that healthier people (who die less likely) are fit to more sports in general. Or that older people do less sport on average.
+
+We are not interpreting the R2 for the model.  
+  
+  
+  
+### 3. If you are interested in the causal effect of doing sports on mortality, would you want to control for some of the other variables in the dataset to get closer to the causal effect you are after?
+
+Yes - including control variables could help us separate the relationship between just mortality and sports, by "filtering out the noise" of potential confounders.  
+  
+  
+Focusing on the variable groups with most impact, for better understanding I would enhance the model with:
+  1. Variables about lifestyle choices: drinking, smoking, and if they could be made available, then variables describing work conditions, stress levels, etc.
+  2. Variables about initial state-of-health: obesity, self-rated health, chronic conditions, etc.
+  
+I expect the above to play a very significant role in mortality rates. 
+There are some other variables that could be influential as well, maybe to a lesser extent: like ones describing family status, as psychological state "dummies", or countries to account for differences in health systems.
+
+  
+  
+  
+### Would that controlling get you the causal effect you are after? 
+
+Partly, yes. By controlling for other variables, we can narrow down the interference between age and sports, separated from other impacts.
+In this case, the direction of causality is obvious, given the type and meaning of the "deceased" variable.
+However, it is very hard to measure the true impact of sports on mortality, as there can be omitted variable bias that are basically impossible to know in a large dataset. Human health is a very complicated question, with a practically unlimited set of influencing factors - factors that can influence human behavior (in this case, doing sports) just as much as the likeliness of dying.
+So, keeping it short, we might gain a better understanding by the introduction of control variables, however it could be very challenging to include all the relevant ones, something to be conscious about.  
+  
+  
+  
+### 4. Control for those variables in another LPM, interpret its results on sports, and compare those to the previous regression estimates. Discuss the differences and similarities.   
+First let's enhance the model with the "age" variable (transforming age to years above 50 for easier interpretation of results), which could account as a proxy for general health-state:  
+
+
+```{r, echo = FALSE, results = "asis"}
+dt[, age_diff := age - 50]
+lpm2.1 <- lm(deceased ~ `factor(sports)1` + `factor(sports)2` + `factor(sports)3` + age_diff,data = dt)
+stargazer(lpm, lpm2.1, type = "html")
+```
+
+  
+We can easily observe that controlling for age seems to be a good decision. The coefficients are showing similar effects (actually, there is much overlap among 95% CIs), but the impact of sports have decreased on the LHS variable, with age accounting for parts of it.
+
+Being conscious about ink space, I am jumping to the final model I deemed best: 
+  
+  
+```{r, echo = FALSE, results = "asis"}
+lpm3 <- lm(deceased ~ `factor(sports)1` + `factor(sports)2` + `factor(sports)3` + age_diff + female + eduyears_mod, data = dt)
+stargazer(lpm, lpm2.1, lpm3, type = "html")
+```  
+  
+  
+
+Interestingly, controlling for education years gives better results than controlling for income, while based on p-values including both might not be a good option (remember the correlation between these variables).  
+
+
+Looking at the intercept, we can say that the conditional mortality rate on average is 6.2% for 50-year old males with no education, who hardly ever do sports.
+(Referring back to the distribution of the education variable, one could argue that the intercept is meaningless and should not be interpreted at all.)  
+  
+Accounting for 95% CIs constructed with robust SEs, we see that doing sports more than hardly ever reduced the chance of death by around 3%-5.5% on average (separate coefficients could be more precisely interpreted, however given the overlap among the CIs I'll not do that here), controlling for the gender, age and education years.
+
+Every year being older increases the chance of death by 0.5% in the dataset on average, controlling for other variables. Females are 3.7% less likely to die by the end of the observation period, on average, controlled for other factors.
+An additional year spent in education also has a negative impact on mortality years, -0.2% for every year on average, controlled for other factors.  
+  
+  
+The results of this "best" model are similar to the simple model run on just the "sports" variable. Even though the benefical impact of doing more sports is somewhat smaller, the magnitudes are similar. This can be possibily attributed to the fact that people in better general state might also do more sports (because they are able to do so), hence the first model overestimated its impact by taking credit for other health factors as well.  
+  
+  
+
+### 5. Re-do exercises 3 & 5 using logit. Calculate and interpret the marginal differences of the sports variables. Discuss the differences and similarities to the LPM results. 
+
+```{r}
+logit <- glm(deceased ~ `factor(sports)1` + `factor(sports)2` + `factor(sports)3`, data = dt, family = "binomial")
+summary(logit)
+
+logit_marg <- logitmfx(formula = deceased ~ `factor(sports)1` + `factor(sports)2` + `factor(sports)3`, data = dt, atmean=FALSE)
+lpm$coefficients
+
+logit2 <- glm(deceased ~ `factor(sports)1` + `factor(sports)2` + `factor(sports)3` + age_diff, data = dt, family = "binomial")
+summary(logit2)
+
+logit2_marg <- logitmfx(formula = deceased ~ `factor(sports)1` + `factor(sports)2` + `factor(sports)3` + age_diff, data = dt, atmean=FALSE)
+lpm2.1$coefficients
+logit2_marg$mfxest
+
+dt$deceased_pred_lpm2.1 <- predict.lm(lpm2.1)
+dt$deceased_pred_logit2 <- predict.glm(logit2, type="response")
+
+ggplot(data = dt, aes(x = deceased_pred_lpm2.1, y = deceased_pred_logit2)) + geom_point() + geom_line()
+
+```

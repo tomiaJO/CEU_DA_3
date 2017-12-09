@@ -3,13 +3,13 @@ library(ggplot2)
 library(stargazer)
 library(sandwich)
 library(mfx)
-
-
-dt <- fread('mortality_oldage_eu.csv')
+##library(gmodels)
+library(descr)
 
 #### Filter data: Keep respondents between 50 and 80 years of age. 
 #### The variables you will need are whether the person deceased within 6 years of the interview (“deceased”), gender (“female”), age (“age”), years of education (“eduyears_mod”), income group within country (“income10g), and the explanatory variables of your focus, physical activities (variable “sports”: 1: more than once a week, 2: once a week, 3: one to three times a month, 4: hardly ever, or never). 
 
+dt <- fread('mortality_oldage_eu.csv')
 dt <- dt[age >= 50 & age <= 80, ]
 dt <- dt[, c("deceased", "female", "age", "eduyears_mod", "income10g", "sports")]
 
@@ -23,6 +23,10 @@ options(na.action = 'na.omit')
 dt <- na.omit(dt)
 
 dt[, gender := ifelse(female == 1, "female", "male")]
+freq(dt$deceased, plot = FALSE)
+freq(dt$female, plot = FALSE)
+
+descr::CrossTable(dt$deceased, dt$female, digits = 2, prop.r = FALSE, prop.c = FALSE, prop.t = FALSE, prop.chisq = FALSE)
 
 ggplot(dt, aes(age)) + geom_histogram(binwidth = 5) + 
   geom_vline(data = dt[, .(age = mean(age)), by = gender], aes(xintercept = age), color = "red") +
