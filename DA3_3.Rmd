@@ -1,0 +1,168 @@
+---
+title: "DA3_3"
+author: "Tamas Koncz"
+date: '2017 december 8 '
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(error = FALSE)
+knitr::opts_chunk$set(warning = FALSE)
+knitr::opts_chunk$set(message = FALSE)
+knitr::opts_chunk$set(fig.width = 10)
+knitr::opts_chunk$set(fig.height = 5)
+knitr::opts_chunk$set(fig.align='center')
+
+library(data.table)
+library(ggplot2)
+library(stargazer)
+library(sandwich)
+library(mfx)
+library(tidyverse)
+##library(gmodels)
+library(descr)
+
+library(knitr)
+library(haven)
+library(pander)
+library(dplyr)
+library(plyr)
+
+
+
+# Multiple plot function
+#
+# ggplot objects can be passed in ..., or to plotlist (as a list of ggplot objects)
+# - cols:   Number of columns in layout
+# - layout: A matrix specifying the layout. If present, 'cols' is ignored.
+#
+# If the layout is something like matrix(c(1,2,3,3), nrow=2, byrow=TRUE),
+# then plot 1 will go in the upper left, 2 will go in the upper right, and
+# 3 will go all the way across the bottom.
+#
+multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
+  require(grid)
+
+  # Make a list from the ... arguments and plotlist
+  plots <- c(list(...), plotlist)
+
+  numPlots = length(plots)
+
+  # If layout is NULL, then use 'cols' to determine layout
+  if (is.null(layout)) {
+    # Make the panel
+    # ncol: Number of columns of plots
+    # nrow: Number of rows needed, calculated from # of cols
+    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
+                    ncol = cols, nrow = ceiling(numPlots/cols))
+  }
+
+ if (numPlots==1) {
+    print(plots[[1]])
+
+  } else {
+    # Set up the page
+    grid.newpage()
+    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
+
+    # Make each plot, in the correct location
+    for (i in 1:numPlots) {
+      # Get the i,j matrix positions of the regions that contain this subplot
+      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
+
+      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
+                                      layout.pos.col = matchidx$col))
+    }
+  }
+}
+
+```
+
+
+
+### 1. Filter data: Keep respondents between 50 and 80 years of age. 
+#### The variables you will need are whether the person deceased within 6 years of the interview (“deceased”), gender (“female”), age (“age”), years of education (“eduyears_mod”), income group within country (“income10g), and the explanatory variables of your focus, physical activities (variable “sports”: 1: more than once a week, 2: once a week, 3: one to three times a month, 4: hardly ever, or never). 
+
+```{r}
+dt <- fread('mortality_oldage_eu.csv')
+dt <- dt[age >= 50 & age <= 80, ]
+dt <- dt[, c("deceased", "female", "age", "eduyears_mod", "income10g", "sports")]
+```
+
+
+### 2. Do exploratoty analysis: Create binary variables from the sports variable. Describe these variables in your dataset. Drop observations that have missing value for either.
+
+```{r, echo= FALSE}
+options(na.action = 'na.pass')
+```
+
+The conversion to binary variables was done with the model.matrix R-function:  
+
+
+```{r}
+m <- model.matrix(~ -1 + deceased + female + age + eduyears_mod + income10g + sports + factor(sports), 
+                  data = dt)
+```
+
+First, let's look at the frequencies for our LHS variable, "deceased". With the help of a crosstable, we will cross-reference it with another variable, "female", representing genders in the sample.
+
+
+```{r, echo = FALSE, results='asis'}
+##freq(dt$deceased, plot = FALSE)
+##freq(dt$female, plot = FALSE)
+ct <- CrossTable(dt$deceased, dt$female,
+           format="SPSS", cell.layout=FALSE,
+           prop.c=FALSE, prop.t=FALSE, prop.chisq=FALSE,
+           dnn=c("Deceased","Female")) 
+pander(ct, digits=1)
+##pander(CrossTable(dt$deceased, dt$female, digits = 1, prop.r = FALSE, prop.c = FALSE, prop.t = FALSE, chisq = FALSE, prop.chisq = FALSE))
+```
+
+This dataset is not balanced:  
+1. Deceased only consitute 6% of our sample  
+2. There are almost 10 percantage points more females than males  
+3. Males have died with a significantly larger frequency than females  
+
+The above should not be a problem for the exercises below (neither do I explore the reasons), but it is worth to keep in mind.    
+
+
+
+Now let's consider the below distribution plots (red line - mean, blue line - median):  
+
+
+```{r, echo= FALSE}
+dt <- data.table(m)
+options(na.action = 'na.omit')
+dt <- na.omit(dt)
+
+dt[, gender := ifelse(female == 1, "female", "male")]
+
+ggplot(dt, aes(age)) + geom_histogram(binwidth = 5) + 
+  geom_vline(data = dt[, .(age = mean(age)), by = gender], aes(xintercept = age), color = "red") +
+  geom_vline(data = dt[, .(age = median(age)), by = gender], aes(xintercept = age), color = "blue") + 
+  labs(x = "Age (years)") +
+  facet_grid(~ gender)
+
+```
+  
+  
+Age is very similarly (basically identically) distributed for both males and females.
+The distributions are not normal, but rather right-skewed. Visually they remind of the lognormal distribution, hence a log transformation can be considered for enhancing the regression's fit.
+
+Next, the distribution of years spend in education, visuallized in the same way:  
+
+```{r, echo = FALSE}
+ggplot(dt, aes(eduyears_mod)) + geom_histogram(binwidth = 1) +  
+  geom_vline(data = dt[, .(eduyears_mod = mean(eduyears_mod)), by = gender], aes(xintercept = eduyears_mod), color = "red") +
+  geom_vline(data = dt[, .(eduyears_mod = median(eduyears_mod)), by = gender], aes(xintercept = eduyears_mod), color = "blue") + 
+  labs(x = "Years of education") + 
+  facet_grid(~ gender)
+```
+  
+The distribution of education years is also similar between genders, however we can observe males having spent more time in higher education slightly more frequently.
+The distributions resemble that of the bell curve, however there are two apparent differences: most people finish their education after a certain amount of years (8-12-etc.), hence we can see these spikes on the bar chart as well, while there is a small uptake with people with 20 years - PhDs.
+(Note that the average person has just finished high school in this sample.)
+
+

@@ -174,3 +174,5 @@ dt$deceased_pred_lpm2.1 <- predict.lm(lpm2.1)
 dt$deceased_pred_logit2 <- predict.glm(logit2, type="response")
 
 ggplot(data = dt, aes(x = deceased_pred_lpm2.1, y = deceased_pred_logit2)) + geom_point() + geom_line()
+
+
