@@ -79,7 +79,7 @@ dt_heatmap2[, ratio_cat := cnt_cat / cnt_gender]
 ggplot(data = dt_heatmap2, aes(x = age_cat, y = income10g)) +
   geom_tile(aes(fill = ratio_cat), colour = "white") + 
   scale_fill_gradient(low = "white", high = "steelblue") + 
-  facet_wrap(~ female)
+  facet_grid(~ female) 
 ## income gradually decreasing with age (most likely people retire / work less)
 
 ggplot(data = dt, aes(x = age_cat, y = income10g)) + geom_boxplot()
@@ -98,9 +98,9 @@ lpm$coefficients
 ## Peope who exercise even more die with 5.9% less chance compared to people in the first category (there were no significant difference between group 1 and 2). They die with a 3.3% likelihood
 ## Based on the p values, all coefficients are significant on the usual levels
 
-## Not suprisingly, people who do more sports are a lot less likely to die based on the dataset. 
-## Just based on this we cannot say however that doing sports make them "healthier" (clarification: but I do consider not dying healthier). 
-## We *only* know that there is a correlation in the dataset. 
+## Not suprisingly, people who do more sports are a lot less likely to die based on the dataset.
+## Just based on this we cannot say however that doing sports make them "healthier" (clarification: but I do consider not dying healthier).
+## We *only* know that there is a correlation in the dataset.
 ## However, it can be that even if the correlation is present in the general population as well, there is no causal relationship.
 ## Example: it could be that healthier people (who die less likely) are fit to more sports in general. Or that older people do less sport on average.
 
@@ -149,7 +149,7 @@ lpm5$coefficients
 lpm2.1$coefficients
 
 lpm6 <- lm(deceased ~ `factor(sports)1` + `factor(sports)2` + `factor(sports)3` + 
-             age_diff + female + eduyears_mod + income10g, data = dt)
+             age_diff + female + income10g, data = dt)
 summary(lpm6)
 lpm6$coefficients
 lpm$coefficients
@@ -164,6 +164,7 @@ stargazer(lpm6, type = "html", out = "xd.doc")
 logit <- glm(deceased ~ `factor(sports)1` + `factor(sports)2` + `factor(sports)3`, data = dt, family = "binomial")
 summary(logit)
 
+
 logit_marg <- logitmfx(formula = deceased ~ `factor(sports)1` + `factor(sports)2` + `factor(sports)3`, data = dt, atmean=FALSE)
 lpm$coefficients
 
@@ -177,6 +178,9 @@ logit2_marg$mfxest
 dt$deceased_pred_lpm2.1 <- predict.lm(lpm2.1)
 dt$deceased_pred_logit2 <- predict.glm(logit2, type="response")
 
-ggplot(data = dt, aes(x = deceased_pred_lpm2.1, y = deceased_pred_logit2)) + geom_point() + geom_line()
+ggplot(data = dt, aes(x = deceased_pred_lpm2.1, y = deceased_pred_logit2)) + geom_point()
 
+logit <- glm(deceased ~ `factor(sports)1` + `factor(sports)2` + `factor(sports)3`, data = dt, family = "binomial")
+logit_marg <- logitmfx(formula = deceased ~ `factor(sports)1` + `factor(sports)2` + `factor(sports)3`, data = dt, atmean=FALSE)
 
+data.table(logit2_marg$mfxest)

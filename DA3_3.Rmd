@@ -344,23 +344,53 @@ The results of this "best" model are similar to the simple model run on just the
 
 ### 5. Re-do exercises 3 & 5 using logit. Calculate and interpret the marginal differences of the sports variables. Discuss the differences and similarities to the LPM results. 
 
-```{r}
+  
+  
+First, the results of the simple model:  
+
+```{r, echo = FALSE}
 logit <- glm(deceased ~ `factor(sports)1` + `factor(sports)2` + `factor(sports)3`, data = dt, family = "binomial")
-summary(logit)
+logit_marg <- logitmfx(formula = deceased ~ `factor(sports)1` + `factor(sports)2` + `factor(sports)3`, data = dt, atmean=FALSE, robust = TRUE)
 
-logit_marg <- logitmfx(formula = deceased ~ `factor(sports)1` + `factor(sports)2` + `factor(sports)3`, data = dt, atmean=FALSE)
-lpm$coefficients
+panderOptions('digits', 3)
+panderOptions('round', 3)
+panderOptions('keep.trailing.zeros', TRUE)
 
-logit2 <- glm(deceased ~ `factor(sports)1` + `factor(sports)2` + `factor(sports)3` + age_diff, data = dt, family = "binomial")
-summary(logit2)
+pander(logit_marg$mfxest)
+```
+  
 
-logit2_marg <- logitmfx(formula = deceased ~ `factor(sports)1` + `factor(sports)2` + `factor(sports)3` + age_diff, data = dt, atmean=FALSE)
-lpm2.1$coefficients
-logit2_marg$mfxest
+Interpreting the marginal effect for "factor(sports1)": on average, people who reported doing  sports more than once a week, had an expected mortality rate 5.1% less than people who never did sports. (Other variables should be interpreted analogusly)  
 
-dt$deceased_pred_lpm2.1 <- predict.lm(lpm2.1)
+
+  
+And then the model with variables from the "best" LPM:  
+
+```{r, echo = FALSE}
+logit2 <- glm(deceased ~ `factor(sports)1` + `factor(sports)2` + `factor(sports)3` + age_diff + female + eduyears_mod, data = dt, family = "binomial")
+logit2_marg <- logitmfx(formula = deceased ~ `factor(sports)1` + `factor(sports)2` + `factor(sports)3` + age_diff + female + eduyears_mod, data = dt, atmean=FALSE, robust = TRUE)
+
+pander(logit2_marg$mfxest)
+```
+  
+  
+Interpreting the marginal effect for "factor(sports1)": on average, people who reported doing  sports more than once a week, had an expected mortality rate 5.1% less than people who never did sports, controlling for the impact of gender, age, and education years. (Other sports variables should be interpreted analogusly) 
+For other variables, we can interpret marginal effects as we did coefficients in the LPM model:
+  - Every year being older increases the chance of death by 0.5% in the dataset on average, controlling for other   variables. 
+  - Females are 3.8% less likely to die by the end of the observation period, on average, controlled for other factors.
+  - An additional year spent in education also has a negative impact on mortality years, -0.2% for every year on average, controlled for other factors. 
+
+
+The impact of these control variables are almost virtually the same as it was in the LPM model.
+For the "sports" variable, we can observe slightly smaller absolute effects than we have seen in the LPM model, but otherwise the results are very similar.  
+
+  
+We can see a comparison of predictions below:
+
+```{r, echo = FALSE}
+dt$deceased_pred_lpm3 <- predict.lm(lpm3)
 dt$deceased_pred_logit2 <- predict.glm(logit2, type="response")
 
-ggplot(data = dt, aes(x = deceased_pred_lpm2.1, y = deceased_pred_logit2)) + geom_point() + geom_line()
+ggplot(data = dt, aes(x = deceased_pred_lpm3, y = deceased_pred_logit2)) + geom_point()
 
 ```
