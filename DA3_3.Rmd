@@ -387,10 +387,25 @@ For the "sports" variable, we can observe slightly smaller absolute effects than
   
 We can see a comparison of predictions below:
 
-```{r, echo = FALSE}
+```{r, echo = FALSE, fig.width = 5}
 dt$deceased_pred_lpm3 <- predict.lm(lpm3)
 dt$deceased_pred_logit2 <- predict.glm(logit2, type="response")
 
-ggplot(data = dt, aes(x = deceased_pred_lpm3, y = deceased_pred_logit2)) + geom_point()
+ggplot(data = dt, aes(x = deceased_pred_lpm3, y = deceased_pred_logit2)) + geom_point() +
+  labs(title = "Comparison of LPM and Logit models",
+       subtitle = "Predictions of `deceased` probabilities",
+       x = "LPM - predicted value", 
+       y = "Logit - predicted value" 
+       ) +
+  scale_x_continuous(limits = c(-0.1, 0.4)) +
+  scale_y_continuous(limits = c(-0.1, 0.4))
 
 ```
+  
+  
+As expected, we can generally observe that the logit model predicts larger probabilities than the LPM, as the "mitigation effect" of sports is smaller. Otherwise the predictions are similar, but the LPM model does predict some negative values (which are meaningless), as without a transformation in the formula, like the one logit has, the predicted probabilities are not bounded by 0 and 1.  
+  
+    
+So, in conclusion, both models could be appropriate for different reasons. Logit is better at actually making (meaningful) predictions, however if we are just interested in the impact of different variables, LPM could be a better choice, as its coefficients are directly interpretable.
+
+
